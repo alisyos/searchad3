@@ -1,0 +1,18 @@
+services:
+  # 웹 서비스 정의
+  - type: web
+    name: naver-searchad-chatbot
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python assistants_app.py
+    healthCheckPath: /
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: NAVER_API_KEY
+        sync: false
+      - key: NAVER_API_SECRET
+        sync: false
+      - key: NAVER_CUSTOMER_ID
+        sync: false 
