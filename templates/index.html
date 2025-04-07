@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>네이버 검색광고 키워드 챗봇</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap">
+</head>
+<body>
+    <div class="header">
+        <h1>네이버 검색광고 키워드 챗봇</h1>
+        <p>네이버 검색광고 API와 OpenAI Assistants를 활용한 대화형 챗봇입니다.</p>
+    </div>
+    
+    <div class="chat-container">
+        <div class="chat-header">
+            <span>네이버 검색광고 챗봇</span>
+            <button id="new-thread-btn">새 대화 시작</button>
+        </div>
+        
+        <div class="chat-messages" id="chat-messages">
+            <div class="message bot-message">
+                안녕하세요! 네이버 검색광고 키워드 챗봇입니다. 키워드 정보를 조회하거나 설정을 변경하는데 도움을 드릴 수 있습니다. 키워드 ID를 입력하고 질문해주세요.
+            </div>
+            <div class="typing-indicator" id="typing-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="input-container">
+            <div class="keyword-input">
+                <input type="text" id="keyword-id" placeholder="키워드 ID를 입력하세요">
+            </div>
+            
+            <div class="message-input">
+                <input type="text" id="message-input" placeholder="메시지를 입력하세요">
+                <button id="send-btn">전송</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="examples">
+        <div class="example-header">예시 질문:</div>
+        <div class="example-items">
+            <div class="example-item" onclick="setExample('현재 입찰가를 알려줘')">현재 입찰가를 알려줘</div>
+            <div class="example-item" onclick="setExample('입찰가를 700원으로 수정해줘')">입찰가를 700원으로 수정해줘</div>
+            <div class="example-item" onclick="setExample('키워드를 활성화해줘')">키워드를 활성화해줘</div>
+            <div class="example-item" onclick="setExample('키워드를 일시중지해줘')">키워드를 일시중지해줘</div>
+            <div class="example-item" onclick="setExample('키워드 상태가 어떻게 되나요?')">키워드 상태가 어떻게 되나요?</div>
+        </div>
+    </div>
+    
+    <script>
+        // 전역 변수
+        let threadId = null;
+        
+        // 페이지 로드 시 실행
+        document.addEventListener('DOMContentLoaded', function() {
+            const messageInput = document.getElementById('message-input');
+            const sendBtn = document.getElementById('send-btn');
+            const newThreadBtn = document.getElementById('new-thread-btn');
+            
+            // Enter 키 이벤트 리스너
+            messageInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+            
+            // 전송 버튼 클릭 이벤트 리스너
+            sendBtn.addEventListener('click', sendMessage);
+            
+            // 새 대화 버튼 클릭 이벤트 리스너
+            newThreadBtn.addEventListener('click', function() {
+                threadId = null;
+                localStorage.removeItem('threadId');
+                const chatMessages = document.getElementById('chat-messages');
+                // 처음 메시지만 남기고 모두 삭제
+                chatMessages.innerHTML = `
+                    <div class="message bot-message">
+                        안녕하세요! 네이버 검색광고 키워드 챗봇입니다. 키워드 정보를 조회하거나 설정을 변경하는데 도움을 드릴 수 있습니다. 키워드 ID를 입력하고 질문해주세요.
+                    </div>
+                    <div class="typing-indicator" id="typing-indicator">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                `;
+            });
+            
+            // 로컬 스토리지에서 이전 스레드 ID 가져오기
+            const savedThreadId = localStorage.getItem('threadId');
+            if (savedThreadId) {
+                threadId = savedThreadId;
+            }
+        });
+        
+        // 메시지 전송 함수
+        async function sendMessage() {
+            const messageInput = document.getElementById('message-input');
+            const keywordIdInput = document.getElementById('keyword-id');
+            const message = messageInput.value.trim();
+            const keywordId = keywordIdInput.value.trim();
+            
+            if (!message) {
+                alert('메시지를 입력해주세요.');
+                return;
+            }
+            
+            // 메시지 입력란 초기화
+            messageInput.value = '';
+            
+            // UI에 사용자 메시지 추가
+            addMessage(message, 'user');
+            
+            // 타이핑 표시기 보이기
+            showTypingIndicator();
+            
+            try {
+                // API 요청
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        keyword_id: keywordId || null,
+                        thread_id: threadId || null
+                    })
+                });
+                
+                const data = await response.json();
+                
+                // 타이핑 표시기 숨기기
+                hideTypingIndicator();
+                
+                if (response.ok) {
+                    // 응답 메시지 추가
+                    addMessage(data.response, 'bot');
+                    
+                    // 스레드 ID 저장
+                    if (data.thread_id) {
+                        threadId = data.thread_id;
+                        localStorage.setItem('threadId', threadId);
+                    }
+                } else {
+                    // 오류 메시지 추가
+                    addMessage(`오류: ${data.detail || '요청 처리 중 오류가 발생했습니다.'}`, 'bot');
+                }
+            } catch (error) {
+                // 타이핑 표시기 숨기기
+                hideTypingIndicator();
+                
+                // 오류 메시지 추가
+                addMessage(`오류: ${error.message}`, 'bot');
+            }
+        }
+        
+        // 메시지 추가 함수
+        function addMessage(message, sender) {
+            const chatMessages = document.getElementById('chat-messages');
+            const messageElement = document.createElement('div');
+            messageElement.className = `message ${sender}-message`;
+            
+            // 텍스트에 줄바꿈 적용
+            messageElement.innerHTML = message.replace(/\n/g, '<br>');
+            
+            // 타이핑 표시기 앞에 삽입
+            const typingIndicator = document.getElementById('typing-indicator');
+            chatMessages.insertBefore(messageElement, typingIndicator);
+            
+            // 스크롤을 맨 아래로
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        // 타이핑 표시기 표시 함수
+        function showTypingIndicator() {
+            const typingIndicator = document.getElementById('typing-indicator');
+            typingIndicator.style.display = 'block';
+            
+            // 스크롤을 맨 아래로
+            const chatMessages = document.getElementById('chat-messages');
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        // 타이핑 표시기 숨김 함수
+        function hideTypingIndicator() {
+            const typingIndicator = document.getElementById('typing-indicator');
+            typingIndicator.style.display = 'none';
+        }
+        
+        // 예시 질문 설정 함수
+        function setExample(text) {
+            document.getElementById('message-input').value = text;
+        }
+    </script>
+</body>
+</html> 
