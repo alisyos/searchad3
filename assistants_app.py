@@ -66,6 +66,7 @@ class ChatRequest(BaseModel):
     keyword_id: Optional[str] = None
     thread_id: Optional[str] = None
 
+# API 서명 생성 함수
 def generate_signature(timestamp: str, method: str, uri: str, secret_key: str) -> str:
     """네이버 API 요청에 필요한 서명을 생성합니다."""
     # URI에서 쿼리 파라미터 제거
@@ -88,131 +89,95 @@ def generate_signature(timestamp: str, method: str, uri: str, secret_key: str) -
     logger.info(f"생성된 서명: {signature}")
     return signature
 
+def get_headers(method: str, uri: str):
+    """네이버 검색광고 API 호출에 필요한 헤더를 생성합니다."""
+    timestamp = str(int(time.time() * 1000))
+    signature = generate_signature(timestamp, method, uri, NAVER_API_SECRET)
+    return {
+        "Content-Type": "application/json",
+        "X-Timestamp": timestamp,
+        "X-API-KEY": NAVER_API_KEY,
+        "X-Customer": NAVER_CUSTOMER_ID,
+        "X-Signature": signature
+    }
+
 def get_keyword_info(keyword_id: str):
     """네이버 검색광고 API를 통해 키워드 정보를 가져옵니다."""
     try:
-        timestamp = str(int(time.time() * 1000))
         method = "GET"
         uri = f"/ncc/keywords/{keyword_id}"
+        base_url = f"{NAVER_API_URL}{uri}"
+        headers = get_headers(method, uri)
         
-        signature = generate_signature(timestamp, method, uri, NAVER_API_SECRET)
-        
-        headers = {
-            "X-Timestamp": timestamp,
-            "X-API-KEY": NAVER_API_KEY,
-            "X-Customer": NAVER_CUSTOMER_ID,
-            "X-Signature": signature
-        }
-        
-        logger.info(f"네이버 API 요청 시작: {keyword_id}")
-        logger.info(f"요청 헤더: {headers}")
-        
-        response = requests.get(
-            f"{NAVER_API_URL}{uri}",
-            headers=headers
-        )
+        logger.info(f"키워드 정보 조회 요청: {keyword_id}")
+        response = requests.get(base_url, headers=headers)
         
         if response.status_code != 200:
-            logger.error(f"네이버 API 오류: {response.status_code} - {response.text}")
-            raise HTTPException(status_code=response.status_code, detail=f"키워드 정보를 가져오는데 실패했습니다: {response.text}")
-        
-        return response.json()
+            logger.error(f"키워드 정보 조회 실패: status={response.status_code}, response={response.text}")
+            
+        response.raise_for_status()
+        return response.json()[0] if isinstance(response.json(), list) else response.json()
     except Exception as e:
         logger.error(f"키워드 정보 조회 중 오류 발생: {str(e)}")
-        raise
+        raise HTTPException(status_code=500, detail=f"키워드 정보를 가져오는데 실패했습니다: {str(e)}")
 
-def update_keyword_bid(keyword_id: str, bid_amount: int, use_group_bid: bool = False):
+def update_bid_amount(keyword_id: str, bid_amount: int):
     """네이버 검색광고 API를 통해 키워드 입찰가를 수정합니다."""
     try:
-        timestamp = str(int(time.time() * 1000))
+        # 키워드 정보를 먼저 가져와 그룹 ID를 얻습니다
+        keyword_info = get_keyword_info(keyword_id)
+        
         method = "PUT"
         uri = f"/ncc/keywords/{keyword_id}?fields=bidAmt"
-        
-        signature = generate_signature(timestamp, method, uri, NAVER_API_SECRET)
-        
-        headers = {
-            "X-Timestamp": timestamp,
-            "X-API-KEY": NAVER_API_KEY,
-            "X-Customer": NAVER_CUSTOMER_ID,
-            "X-Signature": signature,
-            "Content-Type": "application/json"
-        }
-        
-        # 키워드 정보를 먼저 가져와 그룹 ID를 얻습니다
-        keyword_info = get_keyword_info(keyword_id)
+        base_url = f"{NAVER_API_URL}{uri}"
+        headers = get_headers(method, uri)
         
         data = {
             "nccKeywordId": keyword_id,
             "nccAdgroupId": keyword_info["nccAdgroupId"],
-            "bidAmt": bid_amount,
-            "useGroupBidAmt": use_group_bid
+            "bidAmt": bid_amount
         }
         
-        logger.info(f"키워드 입찰가 업데이트 요청: {keyword_id}, {bid_amount}원")
-        logger.info(f"요청 헤더: {headers}")
-        logger.info(f"요청 데이터: {data}")
-        
-        response = requests.put(
-            f"{NAVER_API_URL}{uri}",
-            headers=headers,
-            json=data
-        )
+        logger.info(f"키워드 입찰가 수정 요청: {keyword_id}, 입찰가: {bid_amount}")
+        response = requests.put(base_url, headers=headers, json=data)
         
         if response.status_code != 200:
-            logger.error(f"네이버 API 오류: {response.status_code} - {response.text}")
-            raise HTTPException(status_code=response.status_code, detail=f"키워드 입찰가 수정에 실패했습니다: {response.text}")
-        
+            logger.error(f"입찰가 수정 실패: status={response.status_code}, response={response.text}")
+            
+        response.raise_for_status()
         return response.json()
     except Exception as e:
-        logger.error(f"키워드 입찰가 수정 중 오류 발생: {str(e)}")
-        raise
+        logger.error(f"입찰가 수정 중 오류 발생: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"입찰가 수정에 실패했습니다: {str(e)}")
 
-def update_keyword_status(keyword_id: str, enabled: bool):
-    """네이버 검색광고 API를 통해 키워드 상태(활성화/일시중지)를 수정합니다."""
+def update_keyword_status(keyword_id: str, enable: bool):
+    """네이버 검색광고 API를 통해 키워드 상태를 활성화/비활성화합니다."""
     try:
-        timestamp = str(int(time.time() * 1000))
+        # 키워드 정보를 먼저 가져와 그룹 ID를 얻습니다
+        keyword_info = get_keyword_info(keyword_id)
+        
         method = "PUT"
         uri = f"/ncc/keywords/{keyword_id}?fields=userLock"
+        base_url = f"{NAVER_API_URL}{uri}"
+        headers = get_headers(method, uri)
         
-        signature = generate_signature(timestamp, method, uri, NAVER_API_SECRET)
-        
-        headers = {
-            "X-Timestamp": timestamp,
-            "X-API-KEY": NAVER_API_KEY,
-            "X-Customer": NAVER_CUSTOMER_ID,
-            "X-Signature": signature,
-            "Content-Type": "application/json"
-        }
-        
-        # 키워드 정보를 먼저 가져와 그룹 ID를 얻습니다
-        keyword_info = get_keyword_info(keyword_id)
-        
-        # userLock이 true면 PAUSED, false면 ENABLED 상태가 됩니다
         data = {
             "nccKeywordId": keyword_id,
             "nccAdgroupId": keyword_info["nccAdgroupId"],
-            "userLock": not enabled  # enabled가 true면 userLock은 false
+            "userLock": not enable  # true: 중지, false: 활성화
         }
         
-        status = "활성화" if enabled else "일시중지"
-        logger.info(f"키워드 상태 업데이트 요청: {keyword_id}, {status}")
-        logger.info(f"요청 헤더: {headers}")
-        logger.info(f"요청 데이터: {data}")
-        
-        response = requests.put(
-            f"{NAVER_API_URL}{uri}",
-            headers=headers,
-            json=data
-        )
+        logger.info(f"키워드 상태 변경 요청: {keyword_id}, 활성화: {enable}")
+        response = requests.put(base_url, headers=headers, json=data)
         
         if response.status_code != 200:
-            logger.error(f"네이버 API 오류: {response.status_code} - {response.text}")
-            raise HTTPException(status_code=response.status_code, detail=f"키워드 상태 수정에 실패했습니다: {response.text}")
-        
+            logger.error(f"상태 변경 실패: status={response.status_code}, response={response.text}")
+            
+        response.raise_for_status()
         return response.json()
     except Exception as e:
-        logger.error(f"키워드 상태 수정 중 오류 발생: {str(e)}")
-        raise
+        logger.error(f"키워드 상태 변경 중 오류 발생: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"키워드 상태 변경에 실패했습니다: {str(e)}")
 
 # OpenAI Assistant API 관련 함수
 def create_thread():
@@ -286,7 +251,7 @@ def run_assistant(thread_id, tools=None):
                         keyword_id = function_args.get('keyword_id')
                         bid_amount = function_args.get('bid_amount')
                         use_group_bid = function_args.get('use_group_bid', False)
-                        result = update_keyword_bid(keyword_id, bid_amount, use_group_bid)
+                        result = update_bid_amount(keyword_id, bid_amount)
                     # 상태 변경
                     elif function_name == 'update_keyword_status':
                         keyword_id = function_args.get('keyword_id')
@@ -423,6 +388,130 @@ async def chat(request: ChatRequest):
         
     except Exception as e:
         logger.error(f"채팅 처리 중 오류 발생: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+def get_campaigns():
+    """네이버 검색광고 API를 통해 캠페인 목록을 가져옵니다."""
+    logger.info("캠페인 목록 가져오기")
+    
+    method = "GET"
+    uri = "/ncc/campaigns"
+    base_url = f"{NAVER_API_URL}{uri}"
+    headers = get_headers(method, uri)
+    
+    # API 가이드에 따라 추가적인 쿼리 파라미터 설정
+    params = {
+        "campaignType": "WEB_SITE",  # 파워링크 유형
+        "recordSize": 1000  # 최대 1000개 조회
+    }
+    
+    try:
+        logger.info(f"캠페인 조회 요청: params={params}, headers={headers}")
+        response = requests.get(base_url, headers=headers, params=params)
+        
+        if response.status_code != 200:
+            logger.error(f"캠페인 조회 실패: status={response.status_code}, response={response.text}")
+            
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        logger.error(f"캠페인 정보 요청 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"캠페인 정보를 가져오는데 실패했습니다. {str(e)}")
+
+def get_adgroups(campaign_id: str):
+    """네이버 검색광고 API를 통해 특정 캠페인의 그룹 목록을 가져옵니다."""
+    logger.info(f"그룹 목록 가져오기: campaign_id={campaign_id}")
+    
+    method = "GET"
+    uri = "/ncc/adgroups"
+    base_url = f"{NAVER_API_URL}{uri}"
+    headers = get_headers(method, uri)
+    
+    # 쿼리 파라미터 설정
+    params = {
+        "nccCampaignId": campaign_id
+    }
+    
+    try:
+        logger.info(f"그룹 조회 요청: params={params}")
+        response = requests.get(base_url, headers=headers, params=params)
+        
+        if response.status_code != 200:
+            logger.error(f"그룹 조회 실패: status={response.status_code}, response={response.text}")
+            
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        logger.error(f"그룹 정보 요청 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"그룹 정보를 가져오는데 실패했습니다. {str(e)}")
+
+def get_keywords(adgroup_id: str):
+    """네이버 검색광고 API를 통해 키워드 정보를 가져옵니다."""
+    logger.info(f"키워드 정보 가져오기: adgroup_id={adgroup_id}")
+    
+    method = "GET"
+    
+    try:
+        # 키워드 ID로 검색하는 경우와 그룹 ID로 검색하는 경우 구분
+        if adgroup_id.startswith("nkw-"):
+            # 키워드 ID로 검색
+            keyword_id = adgroup_id
+            uri = f"/ncc/keywords/{keyword_id}"
+            base_url = f"{NAVER_API_URL}{uri}"
+            headers = get_headers(method, uri)
+            
+            logger.info(f"키워드 상세 정보 조회 요청: keyword_id={keyword_id}")
+            response = requests.get(base_url, headers=headers)
+        else:
+            # 그룹 ID로 검색
+            uri = "/ncc/keywords"
+            base_url = f"{NAVER_API_URL}{uri}"
+            headers = get_headers(method, uri)
+            
+            params = {
+                "nccAdgroupId": adgroup_id
+            }
+            
+            logger.info(f"그룹의 키워드 목록 조회 요청: adgroup_id={adgroup_id}")
+            response = requests.get(base_url, headers=headers, params=params)
+        
+        if response.status_code != 200:
+            logger.error(f"키워드 조회 실패: status={response.status_code}, response={response.text}")
+            
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        logger.error(f"키워드 정보 요청 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"키워드 정보를 가져오는데 실패했습니다. {str(e)}")
+
+@app.get("/api/campaigns")
+def api_campaigns():
+    """모든 캠페인 목록을 반환합니다."""
+    try:
+        campaigns = get_campaigns()
+        return {"campaigns": campaigns}
+    except Exception as e:
+        logger.error(f"캠페인 API 호출 중 오류 발생: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/adgroups/{campaign_id}")
+def api_adgroups(campaign_id: str):
+    """특정 캠페인의 그룹 목록을 반환합니다."""
+    try:
+        adgroups = get_adgroups(campaign_id)
+        return {"adgroups": adgroups}
+    except Exception as e:
+        logger.error(f"그룹 API 호출 중 오류 발생: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/keywords/{id}")
+def get_keywords_endpoint(id: str):
+    """키워드 정보를 반환합니다."""
+    try:
+        keywords = get_keywords(id)
+        return {"keywords": keywords}
+    except Exception as e:
+        logger.error(f"키워드 정보 엔드포인트 오류: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

@@ -24,6 +24,108 @@ body {
     font-size: 16px;
 }
 
+/* 키워드 검색 컨테이너 스타일 */
+.keyword-search-container {
+    max-width: 800px;
+    margin: 20px auto;
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.keyword-search-header {
+    background-color: #f2f2f2;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e1e1e1;
+}
+
+.keyword-search-header h2 {
+    margin: 0;
+    font-size: 18px;
+    color: #333;
+}
+
+.toggle-btn {
+    background-color: #03c75a;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+.toggle-btn:hover {
+    background-color: #02a64b;
+}
+
+.keyword-search-panel {
+    padding: 20px;
+}
+
+.search-step {
+    margin-bottom: 20px;
+}
+
+.search-step h3 {
+    font-size: 16px;
+    margin: 0 0 10px 0;
+    color: #555;
+}
+
+.select-box {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 14px;
+    margin-bottom: 10px;
+}
+
+.search-btn {
+    background-color: #03c75a;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+.search-btn:hover {
+    background-color: #02a64b;
+}
+
+.search-btn:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.keyword-info {
+    background-color: #f9f9f9;
+    padding: 15px;
+    border-radius: 5px;
+    border: 1px solid #e1e1e1;
+    margin-top: 20px;
+}
+
+.keyword-info h3 {
+    font-size: 16px;
+    margin: 0 0 10px 0;
+    color: #555;
+}
+
+.info-item {
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
 /* 채팅 컨테이너 */
 .chat-container {
     border: 1px solid #ddd;

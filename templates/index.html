@@ -13,6 +13,41 @@
         <p>네이버 검색광고 API와 OpenAI Assistants를 활용한 대화형 챗봇입니다.</p>
     </div>
     
+    <div class="keyword-search-container">
+        <div class="keyword-search-header">
+            <h2>키워드 검색</h2>
+            <button id="toggle-search-btn" class="toggle-btn">검색 열기</button>
+        </div>
+        <div class="keyword-search-panel" id="keyword-search-panel" style="display: none;">
+            <div class="search-step">
+                <h3>1. 캠페인 선택</h3>
+                <button id="load-campaigns-btn" class="search-btn">캠페인 불러오기</button>
+                <select id="campaign-select" class="select-box">
+                    <option value="">-- 캠페인 선택 --</option>
+                </select>
+            </div>
+            
+            <div class="search-step">
+                <h3>2. 그룹 선택</h3>
+                <select id="adgroup-select" class="select-box" disabled>
+                    <option value="">-- 그룹 선택 --</option>
+                </select>
+            </div>
+            
+            <div class="search-step">
+                <h3>3. 키워드 선택</h3>
+                <select id="keyword-select" class="select-box" disabled>
+                    <option value="">-- 키워드 선택 --</option>
+                </select>
+            </div>
+            
+            <div class="keyword-info" id="keyword-info" style="display: none;">
+                <h3>선택한 키워드 정보</h3>
+                <div id="selected-keyword-info"></div>
+            </div>
+        </div>
+    </div>
+    
     <div class="chat-container">
         <div class="chat-header">
             <span>네이버 검색광고 챗봇</span>
@@ -21,7 +56,7 @@
         
         <div class="chat-messages" id="chat-messages">
             <div class="message bot-message">
-                안녕하세요! 네이버 검색광고 키워드 챗봇입니다. 키워드 정보를 조회하거나 설정을 변경하는데 도움을 드릴 수 있습니다. 키워드 ID를 입력하고 질문해주세요.
+                안녕하세요! 네이버 검색광고 키워드 챗봇입니다. 키워드 정보를 조회하거나 설정을 변경하는데 도움을 드릴 수 있습니다. 키워드 ID를 입력하거나 위의 키워드 검색 기능을 이용해 키워드를 선택해주세요.
             </div>
             <div class="typing-indicator" id="typing-indicator">
                 <span></span>
@@ -62,6 +97,75 @@
             const messageInput = document.getElementById('message-input');
             const sendBtn = document.getElementById('send-btn');
             const newThreadBtn = document.getElementById('new-thread-btn');
+            const toggleSearchBtn = document.getElementById('toggle-search-btn');
+            const keywordSearchPanel = document.getElementById('keyword-search-panel');
+            const loadCampaignsBtn = document.getElementById('load-campaigns-btn');
+            const campaignSelect = document.getElementById('campaign-select');
+            const adgroupSelect = document.getElementById('adgroup-select');
+            const keywordSelect = document.getElementById('keyword-select');
+            
+            // 검색 패널 토글 버튼
+            toggleSearchBtn.addEventListener('click', function() {
+                if (keywordSearchPanel.style.display === 'none') {
+                    keywordSearchPanel.style.display = 'block';
+                    toggleSearchBtn.textContent = '검색 닫기';
+                } else {
+                    keywordSearchPanel.style.display = 'none';
+                    toggleSearchBtn.textContent = '검색 열기';
+                }
+            });
+            
+            // 캠페인 불러오기 버튼
+            loadCampaignsBtn.addEventListener('click', loadCampaigns);
+            
+            // 캠페인 선택 시 그룹 불러오기
+            campaignSelect.addEventListener('change', function() {
+                const campaignId = this.value;
+                if (campaignId) {
+                    loadAdgroups(campaignId);
+                } else {
+                    // 캠페인을 선택하지 않은 경우 그룹과 키워드 선택 비활성화
+                    adgroupSelect.innerHTML = '<option value="">-- 그룹 선택 --</option>';
+                    adgroupSelect.disabled = true;
+                    keywordSelect.innerHTML = '<option value="">-- 키워드 선택 --</option>';
+                    keywordSelect.disabled = true;
+                    
+                    // 키워드 정보 숨기기
+                    document.getElementById('keyword-info').style.display = 'none';
+                }
+            });
+            
+            // 그룹 선택 시 키워드 불러오기
+            adgroupSelect.addEventListener('change', function() {
+                const adgroupId = this.value;
+                if (adgroupId) {
+                    loadKeywords(adgroupId);
+                } else {
+                    // 그룹을 선택하지 않은 경우 키워드 선택 비활성화
+                    keywordSelect.innerHTML = '<option value="">-- 키워드 선택 --</option>';
+                    keywordSelect.disabled = true;
+                    
+                    // 키워드 정보 숨기기
+                    document.getElementById('keyword-info').style.display = 'none';
+                }
+            });
+            
+            // 키워드 선택 시 키워드 ID 입력란에 설정
+            keywordSelect.addEventListener('change', function() {
+                const keywordId = this.value;
+                const keywordText = this.options[this.selectedIndex].text;
+                
+                if (keywordId) {
+                    // 키워드 ID 입력란에 설정
+                    document.getElementById('keyword-id').value = keywordId;
+                    
+                    // 키워드 정보 가져오기
+                    fetchKeywordInfo(keywordId);
+                } else {
+                    // 키워드 정보 숨기기
+                    document.getElementById('keyword-info').style.display = 'none';
+                }
+            });
             
             // Enter 키 이벤트 리스너
             messageInput.addEventListener('keypress', function(e) {
@@ -81,7 +185,7 @@
                 // 처음 메시지만 남기고 모두 삭제
                 chatMessages.innerHTML = `
                     <div class="message bot-message">
-                        안녕하세요! 네이버 검색광고 키워드 챗봇입니다. 키워드 정보를 조회하거나 설정을 변경하는데 도움을 드릴 수 있습니다. 키워드 ID를 입력하고 질문해주세요.
+                        안녕하세요! 네이버 검색광고 키워드 챗봇입니다. 키워드 정보를 조회하거나 설정을 변경하는데 도움을 드릴 수 있습니다. 키워드 ID를 입력하거나 위의 키워드 검색 기능을 이용해 키워드를 선택해주세요.
                     </div>
                     <div class="typing-indicator" id="typing-indicator">
                         <span></span>
@@ -97,6 +201,254 @@
                 threadId = savedThreadId;
             }
         });
+        
+        // 캠페인 목록 불러오기 함수
+        async function loadCampaigns() {
+            const campaignSelect = document.getElementById('campaign-select');
+            const loadBtn = document.getElementById('load-campaigns-btn');
+            
+            try {
+                // 버튼 비활성화 및 텍스트 변경
+                loadBtn.disabled = true;
+                loadBtn.textContent = '불러오는 중...';
+                
+                // API 호출
+                const response = await fetch('/api/campaigns');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const campaigns = data.campaigns;
+                    
+                    // 기본 옵션
+                    campaignSelect.innerHTML = '<option value="">-- 캠페인 선택 --</option>';
+                    
+                    // 캠페인 옵션 추가
+                    campaigns.forEach(campaign => {
+                        const option = document.createElement('option');
+                        option.value = campaign.nccCampaignId;
+                        
+                        // 캠페인 상태(On/Off) 표시
+                        const status = campaign.userLock ? '중지' : '활성';
+                        
+                        // 캠페인 유형 한글로 변환
+                        let campaignType = '';
+                        switch(campaign.campaignTp) {
+                            case 'WEB_SITE':
+                                campaignType = '파워링크';
+                                break;
+                            case 'SHOPPING':
+                                campaignType = '쇼핑검색';
+                                break;
+                            case 'POWER_CONTENTS':
+                                campaignType = '파워컨텐츠';
+                                break;
+                            case 'BRAND_SEARCH':
+                                campaignType = '브랜드검색';
+                                break;
+                            case 'PLACE':
+                                campaignType = '플레이스';
+                                break;
+                            default:
+                                campaignType = campaign.campaignTp;
+                        }
+                        
+                        // 형식: 캠페인명 [유형] - 상태
+                        option.textContent = `${campaign.name || campaign.nccCampaignId} [${campaignType}] - ${status}`;
+                        campaignSelect.appendChild(option);
+                    });
+                    
+                    // 선택 가능하도록 활성화
+                    campaignSelect.disabled = false;
+                } else {
+                    const errorData = await response.json();
+                    alert(`캠페인 정보를 불러오는데 실패했습니다: ${errorData.detail}`);
+                }
+            } catch (error) {
+                alert(`캠페인 정보를 불러오는데 실패했습니다: ${error.message}`);
+            } finally {
+                // 버튼 재활성화 및 텍스트 복원
+                loadBtn.disabled = false;
+                loadBtn.textContent = '캠페인 불러오기';
+            }
+        }
+        
+        // 그룹 목록 불러오기 함수
+        async function loadAdgroups(campaignId) {
+            const adgroupSelect = document.getElementById('adgroup-select');
+            
+            try {
+                // 로딩 상태 표시
+                adgroupSelect.innerHTML = '<option value="">불러오는 중...</option>';
+                adgroupSelect.disabled = true;
+                
+                // API 호출
+                const response = await fetch(`/api/adgroups/${campaignId}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const adgroups = data.adgroups;
+                    
+                    // 기본 옵션
+                    adgroupSelect.innerHTML = '<option value="">-- 그룹 선택 --</option>';
+                    
+                    // 그룹 옵션 추가
+                    adgroups.forEach(adgroup => {
+                        const option = document.createElement('option');
+                        option.value = adgroup.nccAdgroupId;
+                        
+                        // 그룹 상태(On/Off) 표시
+                        const status = adgroup.userLock ? '중지' : '활성';
+                        
+                        // 형식: 그룹명 - 상태
+                        option.textContent = `${adgroup.name || adgroup.nccAdgroupId} - ${status}`;
+                        adgroupSelect.appendChild(option);
+                    });
+                    
+                    // 선택 가능하도록 활성화
+                    adgroupSelect.disabled = false;
+                } else {
+                    const errorData = await response.json();
+                    alert(`그룹 정보를 불러오는데 실패했습니다: ${errorData.detail}`);
+                    adgroupSelect.innerHTML = '<option value="">-- 그룹 선택 --</option>';
+                }
+            } catch (error) {
+                alert(`그룹 정보를 불러오는데 실패했습니다: ${error.message}`);
+                adgroupSelect.innerHTML = '<option value="">-- 그룹 선택 --</option>';
+            }
+        }
+        
+        // 키워드 목록 불러오기 함수
+        async function loadKeywords(adgroupId) {
+            const keywordSelect = document.getElementById('keyword-select');
+            
+            try {
+                // 로딩 상태 표시
+                keywordSelect.innerHTML = '<option value="">불러오는 중...</option>';
+                keywordSelect.disabled = true;
+                
+                // API 호출
+                const response = await fetch(`/api/keywords/${adgroupId}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const keywords = data.keywords;
+                    
+                    // 기본 옵션
+                    keywordSelect.innerHTML = '<option value="">-- 키워드 선택 --</option>';
+                    
+                    // 키워드 옵션 추가
+                    keywords.forEach(keyword => {
+                        const option = document.createElement('option');
+                        option.value = keyword.nccKeywordId;
+                        
+                        // 키워드 상태 표시
+                        const status = keyword.status || (keyword.userLock ? '중지' : '활성');
+                        
+                        // 입찰가 포함
+                        const bidAmt = keyword.bidAmt ? `${keyword.bidAmt}원` : '';
+                        
+                        // 형식: 키워드 - 상태 (입찰가)
+                        option.textContent = bidAmt ? 
+                            `${keyword.keyword} - ${status} (${bidAmt})` : 
+                            `${keyword.keyword} - ${status}`;
+                            
+                        keywordSelect.appendChild(option);
+                    });
+                    
+                    // 선택 가능하도록 활성화
+                    keywordSelect.disabled = false;
+                } else {
+                    const errorData = await response.json();
+                    alert(`키워드 정보를 불러오는데 실패했습니다: ${errorData.detail}`);
+                    keywordSelect.innerHTML = '<option value="">-- 키워드 선택 --</option>';
+                }
+            } catch (error) {
+                alert(`키워드 정보를 불러오는데 실패했습니다: ${error.message}`);
+                keywordSelect.innerHTML = '<option value="">-- 키워드 선택 --</option>';
+            }
+        }
+        
+        // 키워드 정보 가져오기 함수
+        async function fetchKeywordInfo(keywordId) {
+            try {
+                // GET 요청으로 키워드 정보 가져오기
+                const response = await fetch(`/api/keywords/${keywordId}`);
+                
+                if (response.ok) {
+                    const keywordInfo = document.getElementById('keyword-info');
+                    const selectedKeywordInfo = document.getElementById('selected-keyword-info');
+                    
+                    const data = await response.json();
+                    const keyword = data.keywords[0]; // 첫 번째 키워드 항목
+                    
+                    if (keyword) {
+                        // 키워드 상태 및 유형 표시
+                        const status = keyword.status || (keyword.userLock ? '중지' : '활성');
+                        
+                        // 키워드 정보 HTML 생성
+                        let infoHTML = `
+                            <div class="info-item"><strong>키워드:</strong> ${keyword.keyword}</div>
+                            <div class="info-item"><strong>ID:</strong> ${keyword.nccKeywordId}</div>
+                            <div class="info-item"><strong>입찰가:</strong> ${keyword.bidAmt || '-'}원</div>
+                            <div class="info-item"><strong>상태:</strong> ${status}</div>
+                        `;
+                        
+                        // 매칭 타입 정보 표시
+                        if (keyword.matchType) {
+                            let matchTypeText = '';
+                            switch(keyword.matchType) {
+                                case 'EXACT':
+                                    matchTypeText = '정확히 일치';
+                                    break;
+                                case 'PHRASE':
+                                    matchTypeText = '구문 일치';
+                                    break;
+                                case 'BROAD':
+                                    matchTypeText = '광범위 일치';
+                                    break;
+                                default:
+                                    matchTypeText = keyword.matchType;
+                            }
+                            infoHTML += `<div class="info-item"><strong>매칭 타입:</strong> ${matchTypeText}</div>`;
+                        }
+                        
+                        // 품질지수 표시
+                        if (keyword.qualityIndex) {
+                            infoHTML += `<div class="info-item"><strong>품질지수:</strong> ${keyword.qualityIndex}</div>`;
+                        }
+                        
+                        // PC 랜딩 URL
+                        if (keyword.pcUrl) {
+                            infoHTML += `<div class="info-item"><strong>PC URL:</strong> <a href="${keyword.pcUrl}" target="_blank">${keyword.pcUrl}</a></div>`;
+                        }
+                        
+                        // 모바일 랜딩 URL
+                        if (keyword.mobileUrl) {
+                            infoHTML += `<div class="info-item"><strong>모바일 URL:</strong> <a href="${keyword.mobileUrl}" target="_blank">${keyword.mobileUrl}</a></div>`;
+                        }
+                        
+                        // 검수 상태 정보
+                        if (keyword.inspectStatus) {
+                            infoHTML += `<div class="info-item"><strong>검수 상태:</strong> ${keyword.inspectStatus}</div>`;
+                        }
+                        
+                        // 기타 정보
+                        if (keyword.nccQi) {
+                            infoHTML += `<div class="info-item"><strong>품질지수(QI):</strong> ${keyword.nccQi}</div>`;
+                        }
+                        
+                        selectedKeywordInfo.innerHTML = infoHTML;
+                        keywordInfo.style.display = 'block';
+                    } else {
+                        keywordInfo.style.display = 'none';
+                    }
+                } else {
+                    document.getElementById('keyword-info').style.display = 'none';
+                }
+            } catch (error) {
+                document.getElementById('keyword-info').style.display = 'none';
+            }
+        }
         
         // 메시지 전송 함수
         async function sendMessage() {
