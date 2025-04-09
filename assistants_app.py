@@ -124,28 +124,60 @@ def get_keyword_info(keyword_id: str):
 def update_bid_amount(keyword_id: str, bid_amount: int):
     """네이버 검색광고 API를 통해 키워드 입찰가를 수정합니다."""
     try:
+        # 입찰가 범위 검증 (70원 ~ 100,000원)
+        if not (70 <= bid_amount <= 100000):
+            raise HTTPException(
+                status_code=400,
+                detail="입찰가는 70원에서 100,000원 사이여야 합니다."
+            )
+
         # 키워드 정보를 먼저 가져와 그룹 ID를 얻습니다
         keyword_info = get_keyword_info(keyword_id)
         
+        # API 요청 준비 - 주의: URI에 쿼리 파라미터를 포함해야 함
         method = "PUT"
-        uri = f"/ncc/keywords/{keyword_id}?fields=bidAmt"
-        base_url = f"{NAVER_API_URL}{uri}"
-        headers = get_headers(method, uri)
+        uri = f"/ncc/keywords/{keyword_id}?fields=bidAmt"  # 필수: fields=bidAmt 파라미터 포함
+        base_url = f"{NAVER_API_URL}/ncc/keywords/{keyword_id}"  # 기본 URL (쿼리 파라미터 제외)
         
+        # 요청 헤더 생성
+        timestamp = str(int(time.time() * 1000))
+        signature = generate_signature(timestamp, method, uri, NAVER_API_SECRET)
+        headers = {
+            "Content-Type": "application/json",
+            "X-Timestamp": timestamp,
+            "X-API-KEY": NAVER_API_KEY,
+            "X-Customer": NAVER_CUSTOMER_ID,
+            "X-Signature": signature
+        }
+        
+        # 요청 데이터
         data = {
             "nccKeywordId": keyword_id,
             "nccAdgroupId": keyword_info["nccAdgroupId"],
-            "bidAmt": bid_amount
+            "bidAmt": bid_amount,
+            "useGroupBidAmt": False  # 그룹 입찰가 사용하지 않음
         }
         
         logger.info(f"키워드 입찰가 수정 요청: {keyword_id}, 입찰가: {bid_amount}")
-        response = requests.put(base_url, headers=headers, json=data)
+        logger.info(f"요청 헤더: {headers}")
+        logger.info(f"요청 데이터: {data}")
+        logger.info(f"요청 URL: {base_url}?fields=bidAmt")
+        
+        # 명시적으로 쿼리 파라미터를 URL에 포함
+        response = requests.put(f"{base_url}?fields=bidAmt", headers=headers, json=data)
+        logger.info(f"응답 상태 코드: {response.status_code}")
+        logger.info(f"응답 내용: {response.text}")
         
         if response.status_code != 200:
-            logger.error(f"입찰가 수정 실패: status={response.status_code}, response={response.text}")
-            
-        response.raise_for_status()
+            error_info = response.json() if response.text else {"message": "응답 없음"}
+            logger.error(f"입찰가 수정 실패: status={response.status_code}, response={error_info}")
+            error_msg = error_info.get("title", "알 수 없는 오류가 발생했습니다.")
+            raise HTTPException(status_code=response.status_code, detail=error_msg)
+        
         return response.json()
+    except HTTPException as he:
+        # 이미 생성된 HTTPException 그대로 전달
+        raise he
     except Exception as e:
         logger.error(f"입찰가 수정 중 오류 발생: {str(e)}")
         raise HTTPException(status_code=500, detail=f"입찰가 수정에 실패했습니다: {str(e)}")
@@ -156,10 +188,21 @@ def update_keyword_status(keyword_id: str, enable: bool):
         # 키워드 정보를 먼저 가져와 그룹 ID를 얻습니다
         keyword_info = get_keyword_info(keyword_id)
         
+        # API 요청 준비 - 주의: URI에 쿼리 파라미터를 포함해야 함
         method = "PUT"
         uri = f"/ncc/keywords/{keyword_id}?fields=userLock"
-        base_url = f"{NAVER_API_URL}{uri}"
-        headers = get_headers(method, uri)
+        base_url = f"{NAVER_API_URL}/ncc/keywords/{keyword_id}"
+        
+        # 요청 헤더 생성
+        timestamp = str(int(time.time() * 1000))
+        signature = generate_signature(timestamp, method, uri, NAVER_API_SECRET)
+        headers = {
+            "Content-Type": "application/json",
+            "X-Timestamp": timestamp,
+            "X-API-KEY": NAVER_API_KEY,
+            "X-Customer": NAVER_CUSTOMER_ID,
+            "X-Signature": signature
+        }
         
         data = {
             "nccKeywordId": keyword_id,
@@ -167,14 +210,27 @@ def update_keyword_status(keyword_id: str, enable: bool):
             "userLock": not enable  # true: 중지, false: 활성화
         }
         
-        logger.info(f"키워드 상태 변경 요청: {keyword_id}, 활성화: {enable}")
-        response = requests.put(base_url, headers=headers, json=data)
+        status_text = "활성화" if enable else "일시중지"
+        logger.info(f"키워드 상태 변경 요청: {keyword_id}, 상태: {status_text}")
+        logger.info(f"요청 헤더: {headers}")
+        logger.info(f"요청 데이터: {data}")
+        logger.info(f"요청 URL: {base_url}?fields=userLock")
+        
+        # 명시적으로 쿼리 파라미터를 URL에 포함
+        response = requests.put(f"{base_url}?fields=userLock", headers=headers, json=data)
+        logger.info(f"응답 상태 코드: {response.status_code}")
+        logger.info(f"응답 내용: {response.text}")
         
         if response.status_code != 200:
-            logger.error(f"상태 변경 실패: status={response.status_code}, response={response.text}")
-            
-        response.raise_for_status()
+            error_info = response.json() if response.text else {"message": "응답 없음"}
+            logger.error(f"상태 변경 실패: status={response.status_code}, response={error_info}")
+            error_msg = error_info.get("title", "알 수 없는 오류가 발생했습니다.")
+            raise HTTPException(status_code=response.status_code, detail=error_msg)
+        
         return response.json()
+    except HTTPException as he:
+        # 이미 생성된 HTTPException 그대로 전달
+        raise he
     except Exception as e:
         logger.error(f"키워드 상태 변경 중 오류 발생: {str(e)}")
         raise HTTPException(status_code=500, detail=f"키워드 상태 변경에 실패했습니다: {str(e)}")
