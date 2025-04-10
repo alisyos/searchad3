@@ -1,7 +1,7 @@
 /* 전체 스타일 */
 body {
     font-family: 'Noto Sans KR', Arial, sans-serif;
-    max-width: 800px;
+    max-width: 1200px;
     margin: 0 auto;
     padding: 20px;
     background-color: #f5f5f5;
@@ -26,7 +26,7 @@ body {
 
 /* 키워드 검색 컨테이너 스타일 */
 .keyword-search-container {
-    max-width: 800px;
+    width: 100%;
     margin: 20px auto;
     background-color: white;
     border-radius: 10px;
@@ -126,6 +126,12 @@ body {
     font-size: 14px;
 }
 
+/* 메인 컨테이너 레이아웃 */
+.main-container {
+    width: 100%;
+    margin: 20px auto;
+}
+
 /* 채팅 컨테이너 */
 .chat-container {
     border: 1px solid #ddd;
@@ -134,6 +140,7 @@ body {
     background-color: white;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     margin-bottom: 20px;
+    width: 100%;
 }
 
 .chat-header {
@@ -343,4 +350,158 @@ body {
     .message {
         max-width: 90%;
     }
+    
+    .favorite-btn {
+        width: 100%;
+        margin-top: 10px;
+    }
+}
+
+/* 즐겨찾기 컨테이너 스타일 */
+.favorites-container {
+    width: 100%;
+    margin: 20px auto;
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+/* 즐겨찾기 헤더 - 키워드 검색 헤더와 일치 */
+.favorites-header {
+    background-color: #f2f2f2;
+    padding: 15px 20px;
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #e1e1e1;
+}
+
+.favorites-header h2 {
+    margin: 0;
+    font-size: 18px;
+    color: #333;
+}
+
+.favorites-header span {
+    color: #777;
+    font-size: 14px;
+    margin-left: 5px;
+}
+
+.favorites-list {
+    padding: 15px 20px;
+    max-height: 200px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background-color: white;
+}
+
+.empty-favorites {
+    color: #888;
+    text-align: center;
+    padding: 15px 0;
+    font-size: 14px;
+    background-color: #f9f9f9;
+    border-radius: 5px;
+    border: 1px dashed #ddd;
+}
+
+.favorite-button-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.favorite-button {
+    flex: 1;
+    text-align: left;
+    background-color: #f9f9f9;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.favorite-button:hover {
+    background-color: #f0f0f0;
+    border-color: #03C75A;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.favorite-button:active {
+    background-color: #e8f5e9;
+}
+
+.favorite-path {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #555;
+    margin-bottom: 4px;
+    font-size: 11px;
+}
+
+.favorite-keyword {
+    font-weight: 700;
+    color: #333;
+    font-size: 14px;
+}
+
+.favorite-button:hover .favorite-path {
+    color: #03C75A;
+}
+
+.favorite-button:hover .favorite-keyword {
+    color: #03C75A;
+}
+
+.remove-favorite-btn {
+    background-color: #e0e0e0;
+    color: #555;
+    border: none;
+    border-radius: 50%;
+    min-width: 24px;
+    height: 24px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.remove-favorite-btn:hover {
+    background-color: #ff5252;
+    color: white;
+}
+
+/* 즐겨찾기 추가 버튼 - 다른 네이버 색상 버튼과 통일 */
+.favorite-btn {
+    background-color: #03c75a;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-top: 5px;
+    transition: background-color 0.3s;
+}
+
+.favorite-btn:hover {
+    background-color: #02a64b;
+}
+
+.favorite-btn:disabled {
+    background-color: #cccccc;
+    color: white;
+    cursor: not-allowed;
 } 
