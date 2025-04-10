@@ -392,9 +392,9 @@ body {
     padding: 15px 20px;
     max-height: 200px;
     overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
     background-color: white;
 }
 
@@ -406,81 +406,68 @@ body {
     background-color: #f9f9f9;
     border-radius: 5px;
     border: 1px dashed #ddd;
+    grid-column: span 3;
 }
 
+/* 즐겨찾기 버튼 스타일 */
 .favorite-button-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 6px;
+    margin-bottom: 10px;
+    position: relative;
 }
 
 .favorite-button {
-    flex: 1;
+    width: 100%;
     text-align: left;
-    background-color: #f9f9f9;
-    border: 1px solid #e0e0e0;
+    background-color: #f8f9fa;
+    border: 1px solid #ddd;
     border-radius: 5px;
-    padding: 10px 12px;
     cursor: pointer;
-    transition: all 0.2s;
-    overflow: hidden;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease;
+    position: relative;
 }
 
 .favorite-button:hover {
-    background-color: #f0f0f0;
-    border-color: #03C75A;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    background-color: #e9ecef;
 }
 
-.favorite-button:active {
-    background-color: #e8f5e9;
+.favorite-button-content {
+    padding: 25px 40px 25px 15px;  /* 오른쪽 패딩 증가 */
+    position: relative;
 }
 
 .favorite-path {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: #555;
+    font-size: 0.8em;
+    color: #6c757d;
     margin-bottom: 4px;
-    font-size: 11px;
 }
 
 .favorite-keyword {
-    font-weight: 700;
-    color: #333;
-    font-size: 14px;
-}
-
-.favorite-button:hover .favorite-path {
-    color: #03C75A;
-}
-
-.favorite-button:hover .favorite-keyword {
-    color: #03C75A;
+    font-weight: bold;
+    color: #212529;
 }
 
 .remove-favorite-btn {
-    background-color: #e0e0e0;
-    color: #555;
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: #dc3545;
+    color: white;
     border: none;
     border-radius: 50%;
-    min-width: 24px;
+    width: 24px;
     height: 24px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer;
     font-size: 16px;
-    transition: all 0.2s;
-    padding: 0;
-    flex-shrink: 0;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
 }
 
 .remove-favorite-btn:hover {
-    background-color: #ff5252;
-    color: white;
+    background-color: #c82333;
 }
 
 /* 즐겨찾기 추가 버튼 - 다른 네이버 색상 버튼과 통일 */
@@ -504,4 +491,81 @@ body {
     background-color: #cccccc;
     color: white;
     cursor: not-allowed;
+}
+
+/* 반응형 디자인 추가 */
+@media (max-width: 768px) {
+    .favorites-list {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .empty-favorites {
+        grid-column: span 2;
+    }
+}
+
+@media (max-width: 480px) {
+    .favorites-list {
+        grid-template-columns: 1fr;
+    }
+    
+    .empty-favorites {
+        grid-column: span 1;
+    }
+}
+
+/* 즐겨찾기 항목 스타일 */
+.favorite-item {
+    position: relative;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-bottom: 10px;
+}
+
+.favorite-item:hover {
+    background-color: #e9ecef;
+    border-color: #03C75A;
+}
+
+.favorite-content {
+    padding-right: 30px; /* 삭제 버튼 공간 확보 */
+}
+
+.favorite-path {
+    font-size: 0.8em;
+    color: #6c757d;
+    margin-bottom: 4px;
+}
+
+.favorite-keyword {
+    font-weight: bold;
+    color: #212529;
+}
+
+.remove-favorite-btn {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.remove-favorite-btn:hover {
+    background-color: #c82333;
 } 

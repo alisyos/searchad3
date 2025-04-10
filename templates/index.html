@@ -39,6 +39,7 @@
                 <select id="keyword-select" class="select-box" disabled>
                     <option value="">-- 키워드 선택 --</option>
                 </select>
+                <button id="add-favorite-btn" class="favorite-btn" disabled>즐겨찾기 추가</button>
             </div>
             
             <div class="keyword-info" id="keyword-info" style="display: none;">
@@ -48,49 +49,63 @@
         </div>
     </div>
     
-    <div class="chat-container">
-        <div class="chat-header">
-            <span>네이버 검색광고 챗봇</span>
-            <button id="new-thread-btn">새 대화 시작</button>
+    <!-- 즐겨찾기 패널을 여기로 이동 -->
+    <div class="favorites-container">
+        <div class="favorites-header">
+            <h2>즐겨찾기<span id="favorites-count">(0/10)</span></h2>
         </div>
-        
-        <div class="chat-messages" id="chat-messages">
-            <div class="message bot-message">
-                안녕하세요! 네이버 검색광고 키워드 챗봇입니다. 키워드 정보를 조회하거나 설정을 변경하는데 도움을 드릴 수 있습니다. 키워드 ID를 입력하거나 위의 키워드 검색 기능을 이용해 키워드를 선택해주세요.
-            </div>
-            <div class="typing-indicator" id="typing-indicator">
-                <span></span>
-                <span></span>
-                <span></span>
-            </div>
-        </div>
-        
-        <div class="input-container">
-            <div class="keyword-input">
-                <input type="text" id="keyword-id" placeholder="키워드 ID를 입력하세요">
-            </div>
-            
-            <div class="message-input">
-                <input type="text" id="message-input" placeholder="메시지를 입력하세요">
-                <button id="send-btn">전송</button>
-            </div>
+        <div class="favorites-list" id="favorites-list">
+            <div class="empty-favorites">즐겨찾기된 키워드가 없습니다.</div>
         </div>
     </div>
     
-    <div class="examples">
-        <div class="example-header">예시 질문:</div>
-        <div class="example-items">
-            <div class="example-item" onclick="setExample('현재 입찰가를 알려줘')">현재 입찰가를 알려줘</div>
-            <div class="example-item" onclick="setExample('입찰가를 700원으로 수정해줘')">입찰가를 700원으로 수정해줘</div>
-            <div class="example-item" onclick="setExample('키워드를 활성화해줘')">키워드를 활성화해줘</div>
-            <div class="example-item" onclick="setExample('키워드를 일시중지해줘')">키워드를 일시중지해줘</div>
-            <div class="example-item" onclick="setExample('키워드 상태가 어떻게 되나요?')">키워드 상태가 어떻게 되나요?</div>
+    <!-- 메인 컨테이너 수정 - 채팅창만 포함 -->
+    <div class="main-container">
+        <div class="chat-container">
+            <div class="chat-header">
+                <span>네이버 검색광고 챗봇</span>
+                <button id="new-thread-btn">새 대화 시작</button>
+            </div>
+            
+            <div class="chat-messages" id="chat-messages">
+                <div class="message bot-message">
+                    안녕하세요! 네이버 검색광고 키워드 챗봇입니다. 키워드 정보를 조회하거나 설정을 변경하는데 도움을 드릴 수 있습니다. 키워드 ID를 입력하거나 위의 키워드 검색 기능을 이용해 키워드를 선택해주세요.
+                </div>
+                <div class="typing-indicator" id="typing-indicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+            
+            <div class="input-container">
+                <div class="keyword-input">
+                    <input type="text" id="keyword-id" placeholder="키워드 ID를 입력하세요">
+                </div>
+                
+                <div class="message-input">
+                    <input type="text" id="message-input" placeholder="메시지를 입력하세요">
+                    <button id="send-btn">전송</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="examples">
+            <div class="example-header">예시 질문:</div>
+            <div class="example-items">
+                <div class="example-item" onclick="setExample('현재 입찰가를 알려줘')">현재 입찰가를 알려줘</div>
+                <div class="example-item" onclick="setExample('입찰가를 700원으로 수정해줘')">입찰가를 700원으로 수정해줘</div>
+                <div class="example-item" onclick="setExample('키워드를 활성화해줘')">키워드를 활성화해줘</div>
+                <div class="example-item" onclick="setExample('키워드를 일시중지해줘')">키워드를 일시중지해줘</div>
+                <div class="example-item" onclick="setExample('키워드 상태가 어떻게 되나요?')">키워드 상태가 어떻게 되나요?</div>
+            </div>
         </div>
     </div>
     
     <script>
         // 전역 변수
         let threadId = null;
+        let favorites = []; // 즐겨찾기된 키워드 배열
         
         // 페이지 로드 시 실행
         document.addEventListener('DOMContentLoaded', function() {
@@ -103,6 +118,7 @@
             const campaignSelect = document.getElementById('campaign-select');
             const adgroupSelect = document.getElementById('adgroup-select');
             const keywordSelect = document.getElementById('keyword-select');
+            const addFavoriteBtn = document.getElementById('add-favorite-btn');
             
             // 검색 패널 토글 버튼
             toggleSearchBtn.addEventListener('click', function() {
@@ -159,9 +175,15 @@
                     // 키워드 ID 입력란에 설정
                     document.getElementById('keyword-id').value = keywordId;
                     
+                    // 즐겨찾기 버튼 활성화
+                    document.getElementById('add-favorite-btn').disabled = false;
+                    
                     // 키워드 정보 가져오기
                     fetchKeywordInfo(keywordId);
                 } else {
+                    // 즐겨찾기 버튼 비활성화
+                    document.getElementById('add-favorite-btn').disabled = true;
+                    
                     // 키워드 정보 숨기기
                     document.getElementById('keyword-info').style.display = 'none';
                 }
@@ -200,6 +222,12 @@
             if (savedThreadId) {
                 threadId = savedThreadId;
             }
+            
+            // 즐겨찾기 버튼 클릭 이벤트
+            addFavoriteBtn.addEventListener('click', addToFavorites);
+            
+            // 즐겨찾기 로드
+            loadFavorites();
         });
         
         // 캠페인 목록 불러오기 함수
@@ -548,6 +576,144 @@
         // 예시 질문 설정 함수
         function setExample(text) {
             document.getElementById('message-input').value = text;
+        }
+        
+        // 즐겨찾기 추가 함수
+        function addToFavorites() {
+            const keywordSelect = document.getElementById('keyword-select');
+            const keywordId = keywordSelect.value;
+            const keywordText = keywordSelect.options[keywordSelect.selectedIndex].text.split(' - ')[0]; // 키워드 이름만 추출
+            
+            // 캠페인과 그룹 정보 가져오기
+            const campaignSelect = document.getElementById('campaign-select');
+            const adgroupSelect = document.getElementById('adgroup-select');
+            
+            const campaignText = campaignSelect.options[campaignSelect.selectedIndex].text.split(' [')[0]; // 캠페인명만 추출
+            const adgroupText = adgroupSelect.options[adgroupSelect.selectedIndex].text.split(' - ')[0]; // 그룹명만 추출
+            
+            // 이미 즐겨찾기에 있는지 확인
+            const existingIndex = favorites.findIndex(fav => fav.id === keywordId);
+            if (existingIndex !== -1) {
+                alert('이미 즐겨찾기에 추가된 키워드입니다.');
+                return;
+            }
+            
+            // 즐겨찾기 최대 10개 제한
+            if (favorites.length >= 10) {
+                alert('즐겨찾기는 최대 10개까지만 추가할 수 있습니다.');
+                return;
+            }
+            
+            // 즐겨찾기에 추가
+            favorites.push({
+                id: keywordId,
+                keyword: keywordText,
+                campaign: campaignText,
+                adgroup: adgroupText,
+                fullText: `${campaignText}>${adgroupText}>${keywordText}`
+            });
+            
+            // 로컬 스토리지에 저장
+            saveToLocalStorage();
+            
+            // 즐겨찾기 목록 업데이트
+            updateFavoritesList();
+            
+            alert('즐겨찾기에 추가되었습니다.');
+        }
+        
+        // 즐겨찾기에서 제거
+        function removeFromFavorites(keywordId) {
+            // 즐겨찾기 배열에서 해당 키워드 ID 찾아 제거
+            const index = favorites.findIndex(fav => fav.id === keywordId);
+            if (index !== -1) {
+                favorites.splice(index, 1);
+                // 로컬 스토리지 업데이트 - saveToLocalStorage 함수 사용
+                saveToLocalStorage();
+                // 즐겨찾기 목록 UI 업데이트
+                updateFavoritesList();
+            }
+        }
+        
+        // 로컬 스토리지에 즐겨찾기 저장
+        function saveToLocalStorage() {
+            localStorage.setItem('keywordFavorites', JSON.stringify(favorites));
+        }
+        
+        // 로컬 스토리지에서 즐겨찾기 로드
+        function loadFavorites() {
+            const savedFavorites = localStorage.getItem('keywordFavorites');
+            if (savedFavorites) {
+                favorites = JSON.parse(savedFavorites);
+                updateFavoritesList();
+            }
+        }
+        
+        // 즐겨찾기 목록 업데이트
+        function updateFavoritesList() {
+            const favoritesList = document.getElementById('favorites-list');
+            const favoritesCount = document.getElementById('favorites-count');
+            favoritesList.innerHTML = '';
+            
+            // 즐겨찾기 카운트 업데이트
+            favoritesCount.textContent = `(${favorites.length}/10)`;
+            
+            // 즐겨찾기가 없는 경우 메시지 표시
+            if (favorites.length === 0) {
+                favoritesList.innerHTML = '<div class="empty-favorites">즐겨찾기된 키워드가 없습니다.</div>';
+                return;
+            }
+            
+            // 즐겨찾기 목록 생성
+            const favoritesHtml = favorites.map((favorite, index) => {
+                return `
+                    <div class="favorite-item" data-keyword-id="${favorite.id}">
+                        <div class="favorite-content">
+                            <div class="favorite-path">캠페인: ${favorite.campaign || '알 수 없음'} > 그룹: ${favorite.adgroup || '알 수 없음'}</div>
+                            <div class="favorite-keyword">${favorite.keyword}</div>
+                        </div>
+                        <button class="remove-favorite-btn" onclick="removeFromFavorites('${favorite.id}')">×</button>
+                    </div>
+                `;
+            });
+            
+            // HTML 삽입
+            favoritesList.innerHTML = favoritesHtml.join('');
+
+            // 즐겨찾기 항목에 클릭 이벤트 추가
+            document.querySelectorAll('.favorite-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    // 삭제 버튼을 클릭한 경우 이벤트 전파 중지
+                    if (e.target.classList.contains('remove-favorite-btn')) {
+                        e.stopPropagation();
+                        return;
+                    }
+                    const keywordId = this.getAttribute('data-keyword-id');
+                    loadKeywordDetails(keywordId);
+                });
+            });
+        }
+        
+        // 즐겨찾기 키워드 선택
+        function selectFavoriteKeyword(keywordId) {
+            document.getElementById('keyword-id').value = keywordId;
+            fetchKeywordInfo(keywordId);
+        }
+        
+        // 즐겨찾기 키워드 상세 정보 로드 함수 추가
+        async function loadKeywordDetails(keywordId) {
+            // 키워드 ID를 입력란에 설정
+            document.getElementById('keyword-id').value = keywordId;
+            
+            try {
+                // 키워드 정보 가져오기
+                await fetchKeywordInfo(keywordId);
+                
+                // 알림 표시
+                alert('키워드가 선택되었습니다. 이제 이 키워드에 대해 질문할 수 있습니다.');
+            } catch (error) {
+                alert('키워드 정보를 불러오는데 실패했습니다.');
+            }
         }
     </script>
 </body>
