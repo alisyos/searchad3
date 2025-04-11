@@ -4,10 +4,27 @@
     <title>네이버 검색광고 키워드 챗봇</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="static/styles.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap">
 </head>
 <body>
+    <!-- 네비게이션 바 추가 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="/">네이버 검색광고 관리</a>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item active">
+                    <a href="/" class="nav-link">키워드 관리 챗봇</a>
+                </li>
+                <li class="nav-item">
+                    <a href="/report" class="nav-link">광고 리포트</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+    
     <div class="header">
         <h1>네이버 검색광고 키워드 챗봇</h1>
         <p>네이버 검색광고 API와 OpenAI Assistants를 활용한 대화형 챗봇입니다.</p>

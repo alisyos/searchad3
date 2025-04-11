@@ -345,6 +345,11 @@ async def read_root(request: Request):
     """메인 페이지 렌더링"""
     return templates.TemplateResponse("index.html", {"request": request})
 
+@app.get("/report", response_class=HTMLResponse)
+async def report_page(request: Request):
+    """리포트 페이지 렌더링"""
+    return templates.TemplateResponse("report.html", {"request": request})
+
 @app.post("/chat")
 async def chat(request: ChatRequest):
     """Assistants API를 사용한 채팅 처리"""
@@ -568,6 +573,95 @@ def get_keywords_endpoint(id: str):
         return {"keywords": keywords}
     except Exception as e:
         logger.error(f"키워드 정보 엔드포인트 오류: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+def get_stats(entity_id: str, fields: list, time_range: dict = None, date_preset: str = None, 
+              time_increment: str = "1", breakdown: str = None):
+    """네이버 검색광고 API를 통해 통계 데이터를 가져옵니다."""
+    logger.info(f"통계 데이터 가져오기: entity_id={entity_id}")
+    
+    method = "GET"
+    uri = "/stats"
+    base_url = f"{NAVER_API_URL}{uri}"
+    headers = get_headers(method, uri)
+    
+    # 쿼리 파라미터 설정
+    params = {
+        "id": entity_id,
+        "fields": json.dumps(fields),
+        "timeIncrement": time_increment
+    }
+    
+    # 날짜 범위 설정 (datePreset 또는 timeRange 중 하나만 사용)
+    if date_preset:
+        params["datePreset"] = date_preset
+    elif time_range:
+        params["timeRange"] = json.dumps(time_range)
+    else:
+        # 기본값: 최근 7일
+        params["datePreset"] = "last7days"
+    
+    # breakdown 파라미터 추가 (선택 사항)
+    if breakdown:
+        params["breakdown"] = breakdown
+    
+    try:
+        logger.info(f"통계 조회 요청: params={params}")
+        response = requests.get(base_url, headers=headers, params=params)
+        
+        if response.status_code != 200:
+            logger.error(f"통계 조회 실패: status={response.status_code}, response={response.text}")
+            
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        logger.error(f"통계 정보 요청 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"통계 정보를 가져오는데 실패했습니다. {str(e)}")
+
+@app.post("/api/report")
+async def get_report(request: Request):
+    """지정된 조건에 맞는 리포트 데이터를 반환합니다."""
+    try:
+        data = await request.json()
+        entity_id = data.get("entityId")  # 캠페인, 그룹, 키워드 ID
+        
+        # 필수 필드 검증
+        if not entity_id:
+            raise HTTPException(status_code=400, detail="entityId는 필수 파라미터입니다.")
+        
+        # 기본 필드 설정 (변경 가능)
+        fields = data.get("fields", ["impCnt", "clkCnt", "salesAmt", "ctr", "cpc", "avgRnk"])
+        
+        # 날짜 범위 또는 사전 정의된 기간
+        date_preset = data.get("datePreset")
+        time_range = None
+        
+        if not date_preset:
+            start_date = data.get("startDate")
+            end_date = data.get("endDate")
+            
+            if start_date and end_date:
+                time_range = {"since": start_date, "until": end_date}
+            else:
+                date_preset = "last7days"  # 기본값
+        
+        # 시간 단위 및 분류 유형
+        time_increment = data.get("timeIncrement", "1")
+        breakdown = data.get("breakdown")
+        
+        # 통계 데이터 가져오기
+        stats = get_stats(
+            entity_id=entity_id,
+            fields=fields,
+            time_range=time_range,
+            date_preset=date_preset,
+            time_increment=time_increment,
+            breakdown=breakdown
+        )
+        
+        return stats
+    except Exception as e:
+        logger.error(f"리포트 생성 중 오류 발생: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
