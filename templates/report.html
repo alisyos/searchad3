@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>네이버 검색광고 광고 리포트</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap">
+</head>
+<body>
+    <!-- 네비게이션 바 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="/">네이버 검색광고 관리</a>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/" class="nav-link">키워드 관리 챗봇</a>
+                </li>
+                <li class="nav-item active">
+                    <a href="/report" class="nav-link">광고 리포트</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+    
+    <div class="header">
+        <h1>네이버 검색광고 리포트</h1>
+        <p>네이버 검색광고 API를 활용한 광고 성과 및 통계 분석 리포트입니다.</p>
+    </div>
+    
+    <div class="report-container">
+        <!-- 필터 섹션 -->
+        <div class="filter-section">
+            <div class="filter-header">
+                <h2>리포트 필터</h2>
+            </div>
+            <div class="filter-content">
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="date-range">기간 선택</label>
+                        <select id="date-range" class="select-box">
+                            <option value="today">오늘</option>
+                            <option value="yesterday">어제</option>
+                            <option value="7days" selected>최근 7일</option>
+                            <option value="30days">최근 30일</option>
+                            <option value="custom">사용자 지정</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group" id="custom-date-container" style="display: none;">
+                        <label for="start-date">시작일</label>
+                        <input type="date" id="start-date" class="date-input">
+                        <label for="end-date">종료일</label>
+                        <input type="date" id="end-date" class="date-input">
+                    </div>
+                </div>
+                
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="campaign-filter">캠페인</label>
+                        <select id="campaign-filter" class="select-box">
+                            <option value="" selected>캠페인 선택</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="adgroup-filter">광고그룹</label>
+                        <select id="adgroup-filter" class="select-box">
+                            <option value="" selected>광고그룹 선택</option>
+                            <option value="">전체 광고그룹</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="keyword-filter">키워드</label>
+                        <select id="keyword-filter" class="select-box">
+                            <option value="" selected>키워드 선택</option>
+                            <option value="">전체 키워드</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button id="generate-report-btn" class="report-btn">리포트 생성</button>
+            </div>
+        </div>
+        
+        <!-- 차트 및 요약 섹션 -->
+        <div class="report-section">
+            <div class="report-summary">
+                <div class="summary-card">
+                    <div class="summary-title">총 비용</div>
+                    <div class="summary-value" id="total-cost">-</div>
+                </div>
+                
+                <div class="summary-card">
+                    <div class="summary-title">총 노출수</div>
+                    <div class="summary-value" id="total-impressions">-</div>
+                </div>
+                
+                <div class="summary-card">
+                    <div class="summary-title">총 클릭수</div>
+                    <div class="summary-value" id="total-clicks">-</div>
+                </div>
+                
+                <div class="summary-card">
+                    <div class="summary-title">평균 CPC</div>
+                    <div class="summary-value" id="average-cpc">-</div>
+                </div>
+                
+                <div class="summary-card">
+                    <div class="summary-title">CTR</div>
+                    <div class="summary-value" id="average-ctr">-</div>
+                </div>
+                
+                <div class="summary-card">
+                    <div class="summary-title">평균 노출순위</div>
+                    <div class="summary-value" id="average-rank">-</div>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <canvas id="performance-chart"></canvas>
+            </div>
+            
+            <div class="table-container">
+                <h3>상세 데이터</h3>
+                <table id="report-table" class="report-table">
+                    <thead>
+                        <tr>
+                            <th>날짜</th>
+                            <th>비용</th>
+                            <th>노출수</th>
+                            <th>클릭수</th>
+                            <th>CTR</th>
+                            <th>평균 CPC</th>
+                            <th>평균 노출순위</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="7" class="empty-data">리포트를 생성하려면 '리포트 생성' 버튼을 클릭하세요.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const dateRangeSelect = document.getElementById('date-range');
+            const customDateContainer = document.getElementById('custom-date-container');
+            const generateReportBtn = document.getElementById('generate-report-btn');
+            const campaignFilterSelect = document.getElementById('campaign-filter');
+            const adgroupFilterSelect = document.getElementById('adgroup-filter');
+            const keywordFilterSelect = document.getElementById('keyword-filter');
+            
+            // 날짜 기본값 설정
+            const today = new Date();
+            const startDate = document.getElementById('start-date');
+            const endDate = document.getElementById('end-date');
+            
+            // 오늘 날짜 설정
+            endDate.valueAsDate = today;
+            
+            // 7일 전 날짜 설정
+            const sevenDaysAgo = new Date(today);
+            sevenDaysAgo.setDate(today.getDate() - 7);
+            startDate.valueAsDate = sevenDaysAgo;
+            
+            // 기간 선택 이벤트
+            dateRangeSelect.addEventListener('change', function() {
+                if (this.value === 'custom') {
+                    customDateContainer.style.display = 'block';
+                } else {
+                    customDateContainer.style.display = 'none';
+                    
+                    // 선택한 기간에 따라 날짜 설정
+                    const today = new Date();
+                    endDate.valueAsDate = today;
+                    
+                    let startDay = new Date(today);
+                    if (this.value === 'today') {
+                        startDay = new Date(today);
+                    } else if (this.value === 'yesterday') {
+                        startDay.setDate(today.getDate() - 1);
+                        endDate.valueAsDate = startDay;
+                    } else if (this.value === '7days') {
+                        startDay.setDate(today.getDate() - 7);
+                    } else if (this.value === '30days') {
+                        startDay.setDate(today.getDate() - 30);
+                    }
+                    
+                    startDate.valueAsDate = startDay;
+                }
+            });
+            
+            // 캠페인 목록 불러오기
+            async function loadCampaigns() {
+                try {
+                    // 광고그룹과 키워드 선택 초기화
+                    resetSelect(adgroupFilterSelect, '광고그룹 선택');
+                    resetSelect(keywordFilterSelect, '키워드 선택');
+                    
+                    const response = await fetch('/api/campaigns');
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const campaigns = data.campaigns;
+                        
+                        // 캠페인 필터 옵션 초기화
+                        resetSelect(campaignFilterSelect, '캠페인 선택');
+                        
+                        // 캠페인 필터 옵션 추가
+                        campaigns.forEach(campaign => {
+                            const option = document.createElement('option');
+                            option.value = campaign.nccCampaignId;
+                            option.textContent = campaign.name || campaign.nccCampaignId;
+                            campaignFilterSelect.appendChild(option);
+                        });
+                    } else {
+                        console.error('캠페인 정보를 불러오는데 실패했습니다.');
+                        showErrorAlert('캠페인 정보를 불러오는데 실패했습니다.');
+                    }
+                } catch (error) {
+                    console.error('캠페인 정보를 불러오는데 실패했습니다:', error);
+                    showErrorAlert('캠페인 정보를 불러오는데 실패했습니다.');
+                }
+            }
+            
+            // 광고그룹 목록 불러오기
+            async function loadAdgroups(campaignId) {
+                try {
+                    if (!campaignId) {
+                        resetSelect(adgroupFilterSelect, '광고그룹 선택');
+                        resetSelect(keywordFilterSelect, '키워드 선택');
+                        return;
+                    }
+                    
+                    // 키워드 선택 초기화
+                    resetSelect(keywordFilterSelect, '키워드 선택');
+                    
+                    const response = await fetch(`/api/adgroups/${campaignId}`);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const adgroups = data.adgroups;
+                        
+                        // 광고그룹 필터 옵션 초기화
+                        resetSelect(adgroupFilterSelect, '광고그룹 선택');
+                        
+                        // 전체 광고그룹 옵션 추가
+                        const allOption = document.createElement('option');
+                        allOption.value = "";
+                        allOption.textContent = '전체 광고그룹';
+                        adgroupFilterSelect.appendChild(allOption);
+                        
+                        // 광고그룹 필터 옵션 추가
+                        adgroups.forEach(adgroup => {
+                            const option = document.createElement('option');
+                            option.value = adgroup.nccAdgroupId;
+                            option.textContent = adgroup.name || adgroup.nccAdgroupId;
+                            adgroupFilterSelect.appendChild(option);
+                        });
+                    } else {
+                        console.error('광고그룹 정보를 불러오는데 실패했습니다.');
+                        showErrorAlert('광고그룹 정보를 불러오는데 실패했습니다.');
+                    }
+                } catch (error) {
+                    console.error('광고그룹 정보를 불러오는데 실패했습니다:', error);
+                    showErrorAlert('광고그룹 정보를 불러오는데 실패했습니다.');
+                }
+            }
+            
+            // 키워드 목록 불러오기
+            async function loadKeywords(adgroupId) {
+                try {
+                    if (!adgroupId) {
+                        resetSelect(keywordFilterSelect, '키워드 선택');
+                        return;
+                    }
+                    
+                    const response = await fetch(`/api/keywords/${adgroupId}`);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const keywords = data.keywords;
+                        
+                        // 키워드 필터 옵션 초기화
+                        resetSelect(keywordFilterSelect, '키워드 선택');
+                        
+                        // 전체 키워드 옵션 추가
+                        const allOption = document.createElement('option');
+                        allOption.value = "";
+                        allOption.textContent = '전체 키워드';
+                        keywordFilterSelect.appendChild(allOption);
+                        
+                        // 키워드 필터 옵션 추가
+                        keywords.forEach(keyword => {
+                            const option = document.createElement('option');
+                            option.value = keyword.nccKeywordId;
+                            option.textContent = keyword.keyword || keyword.nccKeywordId;
+                            keywordFilterSelect.appendChild(option);
+                        });
+                    } else {
+                        console.error('키워드 정보를 불러오는데 실패했습니다.');
+                        showErrorAlert('키워드 정보를 불러오는데 실패했습니다.');
+                    }
+                } catch (error) {
+                    console.error('키워드 정보를 불러오는데 실패했습니다:', error);
+                    showErrorAlert('키워드 정보를 불러오는데 실패했습니다.');
+                }
+            }
+            
+            // Select 요소 초기화 함수
+            function resetSelect(selectElement, defaultLabel) {
+                selectElement.innerHTML = '';
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = defaultLabel;
+                defaultOption.selected = true;
+                selectElement.appendChild(defaultOption);
+            }
+            
+            // 캠페인 선택 이벤트
+            campaignFilterSelect.addEventListener('change', function() {
+                loadAdgroups(this.value);
+            });
+            
+            // 광고그룹 선택 이벤트
+            adgroupFilterSelect.addEventListener('change', function() {
+                loadKeywords(this.value);
+            });
+            
+            // 캠페인 목록 불러오기
+            loadCampaigns();
+            
+            // 성과 차트 초기화
+            let performanceChart = null;
+            
+            // 에러 알림 표시 함수
+            function showErrorAlert(message) {
+                alert(message);
+            }
+            
+            // 리포트 생성 버튼 클릭 이벤트
+            generateReportBtn.addEventListener('click', generateReport);
+            
+            // 리포트 생성 함수
+            async function generateReport() {
+                // UI 로딩 상태 표시
+                generateReportBtn.disabled = true;
+                generateReportBtn.textContent = '리포트 생성 중...';
+                
+                const dateRange = dateRangeSelect.value;
+                const campaignId = campaignFilterSelect.value;
+                const adgroupId = adgroupFilterSelect.value;
+                const keywordId = keywordFilterSelect.value;
+                
+                let datePreset = null;
+                let startDateStr = startDate.value;
+                let endDateStr = endDate.value;
+                
+                // 날짜 범위 데이터 준비
+                if (dateRange !== 'custom') {
+                    // 사전 정의된 기간 사용
+                    switch(dateRange) {
+                        case 'today':
+                            datePreset = 'today';
+                            break;
+                        case 'yesterday':
+                            datePreset = 'yesterday';
+                            break;
+                        case '7days':
+                            datePreset = 'last7days';
+                            break;
+                        case '30days':
+                            datePreset = 'last30days';
+                            break;
+                    }
+                }
+                
+                // 기본 지표 필드 설정
+                const fields = ["impCnt", "clkCnt", "ctr", "cpc", "avgRnk", "salesAmt"];
+                
+                // API 호출 데이터 준비
+                try {
+                    // 선택된 항목에 따라 entityId 결정
+                    let entityId;
+                    
+                    if (keywordId) {
+                        // 키워드가 선택된 경우
+                        entityId = keywordId;
+                    } else if (adgroupId) {
+                        // 광고그룹만 선택된 경우
+                        entityId = adgroupId;
+                    } else if (campaignId) {
+                        // 캠페인만 선택된 경우
+                        entityId = campaignId;
+                    } else {
+                        // 아무것도 선택되지 않은 경우
+                        showErrorAlert('캠페인, 광고그룹 또는 키워드를 선택해주세요.');
+                        resetButton();
+                        return;
+                    }
+                    
+                    const response = await fetch('/api/report', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            entityId: entityId,
+                            fields: fields,
+                            startDate: startDateStr,
+                            endDate: endDateStr,
+                            datePreset: datePreset,
+                            timeIncrement: "1" // 일별 데이터
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        handleReportData(data, fields);
+                    } else {
+                        const errorData = await response.json();
+                        showErrorAlert(`리포트 생성에 실패했습니다: ${errorData.detail || '알 수 없는 오류'}`);
+                    }
+                } catch (error) {
+                    console.error('리포트 생성 오류:', error);
+                    showErrorAlert('리포트 생성 중 오류가 발생했습니다.');
+                } finally {
+                    // 버튼 상태 복원
+                    resetButton();
+                }
+            }
+            
+            // 버튼 상태 복원 함수
+            function resetButton() {
+                generateReportBtn.disabled = false;
+                generateReportBtn.textContent = '리포트 생성';
+            }
+            
+            // 리포트 데이터 처리 함수
+            function handleReportData(data, fields) {
+                console.log('API 응답 데이터:', data);
+                
+                if (!data) {
+                    showErrorAlert('응답 데이터가 없습니다.');
+                    return null;
+                }
+                
+                let processedData;
+                
+                // 데이터 유형 확인
+                if (data.dailyStatResponse) {
+                    processedData = processDailyStats(data.dailyStatResponse, fields);
+                } else if (data.summaryStatResponse) {
+                    processedData = processSummaryStats(data.summaryStatResponse, fields);
+                } else if (data.data && Array.isArray(data.data)) {
+                    // 일별 데이터로 처리
+                    processedData = processDailyStats({ data: data.data }, fields);
+                } else if (data.data) {
+                    // 요약 데이터로 처리
+                    processedData = processSummaryStats({ data: data.data, timeInterval: { dateStart: new Date().toISOString().split('T')[0] } }, fields);
+                } else {
+                    showErrorAlert('지원되지 않는 데이터 형식입니다.');
+                    return null;
+                }
+                
+                updateReportUI(processedData);
+            }
+            
+            // 일별 통계 데이터 처리 함수
+            function processDailyStats(dailyStats, fields) {
+                if (!dailyStats || !dailyStats.data || !Array.isArray(dailyStats.data) || dailyStats.data.length === 0) {
+                    console.error('유효한 일별 데이터가 없습니다.', dailyStats);
+                    return {
+                        dates: [],
+                        costs: [],
+                        impressions: [],
+                        clicks: [],
+                        ctrs: [],
+                        cpcs: [],
+                        avgRanks: [],
+                        summary: {
+                            totalCost: 0,
+                            totalImpressions: 0,
+                            totalClicks: 0,
+                            avgCtr: 0,
+                            avgCpc: 0,
+                            avgRank: 0,
+                            costChange: 0,
+                            impressionsChange: 0,
+                            clicksChange: 0,
+                            ctrChange: 0
+                        }
+                    };
+                }
+
+                console.log('일별 데이터 처리 중:', dailyStats);
+                
+                const dates = [];
+                const costs = [];
+                const impressions = [];
+                const clicks = [];
+                const ctrs = [];
+                const cpcs = [];
+                const avgRanks = [];
+                
+                // 일별 데이터 처리
+                dailyStats.data.forEach(day => {
+                    // 날짜 포맷 처리
+                    const date = day.dateStart || day.date || '';
+                    dates.push(date);
+                    
+                    // 각 필드 데이터 추출
+                    fields.forEach(field => {
+                        const value = day[field];
+                        switch(field) {
+                            case "impCnt":
+                                impressions.push(parseInt(value) || 0);
+                                break;
+                            case "clkCnt":
+                                clicks.push(parseInt(value) || 0);
+                                break;
+                            case "salesAmt":
+                                costs.push(parseInt(value) || 0);
+                                break;
+                            case "ctr":
+                                ctrs.push(parseFloat(value) || 0);
+                                break;
+                            case "cpc":
+                                cpcs.push(parseInt(value) || 0);
+                                break;
+                            case "avgRnk":
+                                avgRanks.push(parseFloat(value) || 0);
+                                break;
+                        }
+                    });
+                    
+                    // 비용 데이터가 없으면 0 추가
+                    if (!fields.includes("salesAmt") && costs.length < dates.length) {
+                        costs.push(0);
+                    }
+                    
+                    // 노출 데이터가 없으면 0 추가
+                    if (!fields.includes("impCnt") && impressions.length < dates.length) {
+                        impressions.push(0);
+                    }
+                    
+                    // 클릭 데이터가 없으면 0 추가
+                    if (!fields.includes("clkCnt") && clicks.length < dates.length) {
+                        clicks.push(0);
+                    }
+                    
+                    // CTR 데이터가 없으면 0 추가
+                    if (!fields.includes("ctr") && ctrs.length < dates.length) {
+                        ctrs.push(0);
+                    }
+                    
+                    // CPC 데이터가 없으면 0 추가
+                    if (!fields.includes("cpc") && cpcs.length < dates.length) {
+                        cpcs.push(0);
+                    }
+                    
+                    // 평균 노출순위 데이터가 없으면 0 추가
+                    if (!fields.includes("avgRnk") && avgRanks.length < dates.length) {
+                        avgRanks.push(0);
+                    }
+                });
+                
+                // 요약 계산
+                const totalCost = costs.reduce((a, b) => a + b, 0);
+                const totalImpressions = impressions.reduce((a, b) => a + b, 0);
+                const totalClicks = clicks.reduce((a, b) => a + b, 0);
+                const avgCtr = totalImpressions > 0 ? (totalClicks / totalImpressions * 100).toFixed(2) : 0;
+                const avgCpc = totalClicks > 0 ? (totalCost / totalClicks).toFixed(2) : 0;
+                
+                // 평균 노출순위 계산 - 데이터가 있는 값들의 평균
+                const filteredRanks = avgRanks.filter(rank => rank > 0);
+                const avgRank = filteredRanks.length > 0 
+                    ? (filteredRanks.reduce((a, b) => a + b, 0) / filteredRanks.length).toFixed(1) 
+                    : 0;
+                
+                return {
+                    dates: dates,
+                    costs: costs,
+                    impressions: impressions,
+                    clicks: clicks,
+                    ctrs: ctrs,
+                    cpcs: cpcs,
+                    avgRanks: avgRanks,
+                    summary: {
+                        totalCost: totalCost,
+                        totalImpressions: totalImpressions,
+                        totalClicks: totalClicks,
+                        avgCtr: avgCtr,
+                        avgCpc: avgCpc,
+                        avgRank: avgRank,
+                        costChange: 0,
+                        impressionsChange: 0,
+                        clicksChange: 0,
+                        ctrChange: 0
+                    }
+                };
+            }
+            
+            // 요약 통계 데이터 처리 함수
+            function processSummaryStats(summaryStats, fields) {
+                if (!summaryStats || !summaryStats.data) {
+                    console.error('유효한 요약 데이터가 없습니다.', summaryStats);
+                    return {
+                        dates: [],
+                        costs: [],
+                        impressions: [],
+                        clicks: [],
+                        ctrs: [],
+                        cpcs: [],
+                        avgRanks: [],
+                        summary: {
+                            totalCost: 0,
+                            totalImpressions: 0,
+                            totalClicks: 0,
+                            avgCtr: 0,
+                            avgCpc: 0,
+                            avgRank: 0,
+                            costChange: 0,
+                            impressionsChange: 0,
+                            clicksChange: 0,
+                            ctrChange: 0
+                        }
+                    };
+                }
+
+                console.log('요약 데이터 처리 중:', summaryStats);
+                
+                // 날짜 범위 추출
+                let date = '';
+                if (summaryStats.timeInterval) {
+                    date = summaryStats.timeInterval.dateStart || '';
+                }
+                
+                // 데이터 추출
+                const data = summaryStats.data || {};
+                
+                // 단일 날짜 범위에 대한 요약 데이터
+                const totalCost = fields.includes("salesAmt") ? parseInt(data.salesAmt) || 0 : 0;
+                const totalImpressions = fields.includes("impCnt") ? parseInt(data.impCnt) || 0 : 0;
+                const totalClicks = fields.includes("clkCnt") ? parseInt(data.clkCnt) || 0 : 0;
+                const avgCtr = fields.includes("ctr") ? parseFloat(data.ctr) || 0 : 0;
+                const avgCpc = fields.includes("cpc") ? parseInt(data.cpc) || 0 : 0;
+                const avgRank = fields.includes("avgRnk") ? parseFloat(data.avgRnk) || 0 : 0;
+                
+                return {
+                    dates: [date],
+                    costs: [totalCost],
+                    impressions: [totalImpressions],
+                    clicks: [totalClicks],
+                    ctrs: [avgCtr],
+                    cpcs: [avgCpc],
+                    avgRanks: [avgRank],
+                    summary: {
+                        totalCost: totalCost,
+                        totalImpressions: totalImpressions,
+                        totalClicks: totalClicks,
+                        avgCtr: avgCtr,
+                        avgCpc: avgCpc,
+                        avgRank: avgRank,
+                        costChange: 0,
+                        impressionsChange: 0,
+                        clicksChange: 0,
+                        ctrChange: 0
+                    }
+                };
+            }
+            
+            // UI 업데이트 함수
+            function updateReportUI(data) {
+                // 요약 정보 업데이트
+                document.getElementById('total-cost').textContent = formatNumber(data.summary.totalCost) + '원';
+                document.getElementById('total-impressions').textContent = formatNumber(data.summary.totalImpressions);
+                document.getElementById('total-clicks').textContent = formatNumber(data.summary.totalClicks);
+                document.getElementById('average-ctr').textContent = data.summary.avgCtr + '%';
+                document.getElementById('average-cpc').textContent = formatNumber(data.summary.avgCpc) + '원';
+                document.getElementById('average-rank').textContent = data.summary.avgRank || '-';
+                
+                // 차트 업데이트
+                updateChart(data);
+                
+                // 테이블 업데이트
+                updateTable(data);
+            }
+            
+            // 차트 업데이트 함수
+            function updateChart(data) {
+                const ctx = document.getElementById('performance-chart').getContext('2d');
+                
+                // 기존 차트 제거
+                if (performanceChart) {
+                    performanceChart.destroy();
+                }
+                
+                // 새 차트 생성
+                performanceChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.dates,
+                        datasets: [
+                            {
+                                label: '비용',
+                                data: data.costs,
+                                backgroundColor: 'rgba(3, 199, 90, 0.1)',
+                                borderColor: '#03C75A',
+                                tension: 0.4,
+                                yAxisID: 'y'
+                            },
+                            {
+                                label: '클릭수',
+                                data: data.clicks,
+                                backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                                borderColor: '#36A2EB',
+                                tension: 0.4,
+                                yAxisID: 'y1'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        stacked: false,
+                        scales: {
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                title: {
+                                    display: true,
+                                    text: '비용 (원)'
+                                }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                grid: {
+                                    drawOnChartArea: false,
+                                },
+                                title: {
+                                    display: true,
+                                    text: '클릭수'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // 테이블 업데이트 함수
+            function updateTable(data) {
+                const tableBody = document.querySelector('#report-table tbody');
+                let rows = '';
+                
+                for (let i = 0; i < data.dates.length; i++) {
+                    rows += `
+                        <tr>
+                            <td>${data.dates[i]}</td>
+                            <td>${formatNumber(data.costs[i] || 0)}원</td>
+                            <td>${formatNumber(data.impressions[i] || 0)}</td>
+                            <td>${formatNumber(data.clicks[i] || 0)}</td>
+                            <td>${data.ctrs[i] || 0}%</td>
+                            <td>${data.cpcs[i] || 0}원</td>
+                            <td>${data.avgRanks[i] || '-'}</td>
+                        </tr>
+                    `;
+                }
+                
+                // 데이터가 없는 경우
+                if (data.dates.length === 0) {
+                    rows = '<tr><td colspan="7" class="empty-data">데이터가 없습니다.</td></tr>';
+                }
+                
+                tableBody.innerHTML = rows;
+            }
+            
+            // 숫자 포맷팅 함수
+            function formatNumber(num) {
+                return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+            }
+        });
+    </script>
+</body>
+</html> 
