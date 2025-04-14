@@ -4,8 +4,28 @@
     <title>네이버 검색광고 광고 리포트</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/static/styles.css?v=1.1">
+    <link rel="stylesheet" href="/static/styles.css?v=1.2">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap">
+    <style>
+        /* 다중 선택 박스 스타일 */
+        .select-box[multiple] {
+            height: 120px !important;
+            padding: 5px !important;
+            overflow-y: auto !important;
+        }
+        
+        .select-box[multiple] option {
+            padding: 5px !important;
+            margin-bottom: 2px !important;
+            border-radius: 3px !important;
+            cursor: pointer !important;
+        }
+        
+        .select-box[multiple] option:checked {
+            background-color: #03C75A !important;
+            color: white !important;
+        }
+    </style>
 </head>
 <body>
     <!-- 네비게이션 바 -->
@@ -60,25 +80,37 @@
                 <div class="filter-row">
                     <div class="filter-group">
                         <label for="campaign-filter">캠페인</label>
-                        <select id="campaign-filter" class="select-box">
+                        <select id="campaign-filter" class="select-box" multiple size="5">
                             <option value="" selected>캠페인 선택</option>
                         </select>
+                        <div class="selected-items" id="selected-campaigns">
+                            <h4>선택된 캠페인</h4>
+                            <div class="selected-tags" id="campaign-tags"></div>
+                        </div>
                     </div>
                     
                     <div class="filter-group">
                         <label for="adgroup-filter">광고그룹</label>
-                        <select id="adgroup-filter" class="select-box">
+                        <select id="adgroup-filter" class="select-box" multiple size="5">
                             <option value="" selected>광고그룹 선택</option>
                             <option value="">전체 광고그룹</option>
                         </select>
+                        <div class="selected-items" id="selected-adgroups">
+                            <h4>선택된 광고그룹</h4>
+                            <div class="selected-tags" id="adgroup-tags"></div>
+                        </div>
                     </div>
                     
                     <div class="filter-group">
                         <label for="keyword-filter">키워드</label>
-                        <select id="keyword-filter" class="select-box">
+                        <select id="keyword-filter" class="select-box" multiple size="5">
                             <option value="" selected>키워드 선택</option>
                             <option value="">전체 키워드</option>
                         </select>
+                        <div class="selected-items" id="selected-keywords">
+                            <h4>선택된 키워드</h4>
+                            <div class="selected-tags" id="keyword-tags"></div>
+                        </div>
                     </div>
                 </div>
                 
@@ -151,12 +183,64 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // 다중 선택 기능 설정
+            enableMultipleSelection('campaign-filter');
+            enableMultipleSelection('adgroup-filter');
+            enableMultipleSelection('keyword-filter');
+            
+            // 다중 선택 기능 활성화 함수
+            function enableMultipleSelection(elementId) {
+                const selectElement = document.getElementById(elementId);
+                
+                // Ctrl 키를 누르지 않고도 다중 선택이 가능하도록 설정
+                selectElement.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    
+                    const option = e.target;
+                    if (option.tagName.toLowerCase() !== 'option') return;
+                    
+                    // 기본 옵션(placeholder)은 다중 선택에서 제외
+                    if (option.value === '' && option === this.options[0]) {
+                        this.selectedIndex = -1;  // 모든 선택 해제
+                        return;
+                    }
+                    
+                    // 옵션의 selected 상태 토글
+                    option.selected = !option.selected;
+                    
+                    // 선택된 옵션이 있는지 확인
+                    const hasSelectedOptions = Array.from(this.options).some(opt => opt.selected && opt.value !== '');
+                    
+                    // 첫 번째 옵션(placeholder)의 선택 상태 관리
+                    if (this.options[0].value === '') {
+                        this.options[0].selected = !hasSelectedOptions;
+                    }
+                    
+                    // 변경 이벤트 발생
+                    const event = new Event('change');
+                    this.dispatchEvent(event);
+                });
+            }
+            
             const dateRangeSelect = document.getElementById('date-range');
             const customDateContainer = document.getElementById('custom-date-container');
             const generateReportBtn = document.getElementById('generate-report-btn');
             const campaignFilterSelect = document.getElementById('campaign-filter');
             const adgroupFilterSelect = document.getElementById('adgroup-filter');
             const keywordFilterSelect = document.getElementById('keyword-filter');
+            
+            // 선택된 항목 표시 영역
+            const selectedCampaigns = document.getElementById('selected-campaigns');
+            const selectedAdgroups = document.getElementById('selected-adgroups');
+            const selectedKeywords = document.getElementById('selected-keywords');
+            const campaignTags = document.getElementById('campaign-tags');
+            const adgroupTags = document.getElementById('adgroup-tags');
+            const keywordTags = document.getElementById('keyword-tags');
+            
+            // 선택된 항목 저장 배열
+            let selectedCampaignItems = [];
+            let selectedAdgroupItems = [];
+            let selectedKeywordItems = [];
             
             // 날짜 기본값 설정
             const today = new Date();
@@ -198,29 +282,76 @@
                 }
             });
             
+            // Select 요소 초기화 함수
+            function resetSelect(selectElement, defaultLabel) {
+                // 현재 선택된 항목 저장
+                const selectedValues = Array.from(selectElement.selectedOptions)
+                    .filter(option => option.value !== '')
+                    .map(option => {
+                        return {
+                            value: option.value,
+                            text: option.textContent
+                        };
+                    });
+                
+                selectElement.innerHTML = '';
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = defaultLabel;
+                defaultOption.selected = selectedValues.length === 0;
+                selectElement.appendChild(defaultOption);
+                
+                return selectedValues;
+            }
+            
             // 캠페인 목록 불러오기
             async function loadCampaigns() {
                 try {
-                    // 광고그룹과 키워드 선택 초기화
-                    resetSelect(adgroupFilterSelect, '광고그룹 선택');
-                    resetSelect(keywordFilterSelect, '키워드 선택');
-                    
                     const response = await fetch('/api/campaigns');
                     
                     if (response.ok) {
                         const data = await response.json();
                         const campaigns = data.campaigns;
                         
+                        // 현재 선택된 캠페인 ID 저장
+                        const selectedOptions = Array.from(campaignFilterSelect.selectedOptions)
+                            .filter(option => option.value !== '')
+                            .map(option => {
+                                return {
+                                    value: option.value,
+                                    text: option.textContent
+                                };
+                            });
+                        
                         // 캠페인 필터 옵션 초기화
-                        resetSelect(campaignFilterSelect, '캠페인 선택');
+                        campaignFilterSelect.innerHTML = '';
+                        
+                        // 기본 옵션 추가
+                        const defaultOption = document.createElement('option');
+                        defaultOption.value = '';
+                        defaultOption.textContent = '캠페인 선택';
+                        campaignFilterSelect.appendChild(defaultOption);
                         
                         // 캠페인 필터 옵션 추가
                         campaigns.forEach(campaign => {
                             const option = document.createElement('option');
                             option.value = campaign.nccCampaignId;
                             option.textContent = campaign.name || campaign.nccCampaignId;
+                            
+                            // 이전에 선택된 값이면 선택 상태로 설정
+                            if (selectedOptions.some(item => item.value === campaign.nccCampaignId)) {
+                                option.selected = true;
+                            }
+                            
                             campaignFilterSelect.appendChild(option);
                         });
+                        
+                        // 선택된 항목이 있으면 관련 데이터 로드
+                        const selectedCampaignIds = selectedOptions.map(opt => opt.value);
+                        if (selectedCampaignIds.length > 0) {
+                            updateSelectedItems('campaign', selectedCampaignIds);
+                            loadAdgroups(selectedCampaignIds);
+                        }
                     } else {
                         console.error('캠페인 정보를 불러오는데 실패했습니다.');
                         showErrorAlert('캠페인 정보를 불러오는데 실패했습니다.');
@@ -232,42 +363,114 @@
             }
             
             // 광고그룹 목록 불러오기
-            async function loadAdgroups(campaignId) {
+            async function loadAdgroups(campaignIds) {
                 try {
-                    if (!campaignId) {
-                        resetSelect(adgroupFilterSelect, '광고그룹 선택');
-                        resetSelect(keywordFilterSelect, '키워드 선택');
+                    if (!campaignIds || campaignIds.length === 0) {
+                        // 캠페인이 선택되지 않은 경우 광고그룹 초기화
+                        adgroupFilterSelect.innerHTML = '';
+                        const defaultOption = document.createElement('option');
+                        defaultOption.value = '';
+                        defaultOption.textContent = '광고그룹 선택';
+                        adgroupFilterSelect.appendChild(defaultOption);
+                        
+                        // 키워드도 초기화
+                        keywordFilterSelect.innerHTML = '';
+                        const defaultKeywordOption = document.createElement('option');
+                        defaultKeywordOption.value = '';
+                        defaultKeywordOption.textContent = '키워드 선택';
+                        keywordFilterSelect.appendChild(defaultKeywordOption);
+                        
                         return;
                     }
                     
-                    // 키워드 선택 초기화
-                    resetSelect(keywordFilterSelect, '키워드 선택');
-                    
-                    const response = await fetch(`/api/adgroups/${campaignId}`);
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        const adgroups = data.adgroups;
-                        
-                        // 광고그룹 필터 옵션 초기화
-                        resetSelect(adgroupFilterSelect, '광고그룹 선택');
-                        
-                        // 전체 광고그룹 옵션 추가
-                        const allOption = document.createElement('option');
-                        allOption.value = "";
-                        allOption.textContent = '전체 광고그룹';
-                        adgroupFilterSelect.appendChild(allOption);
-                        
-                        // 광고그룹 필터 옵션 추가
-                        adgroups.forEach(adgroup => {
-                            const option = document.createElement('option');
-                            option.value = adgroup.nccAdgroupId;
-                            option.textContent = adgroup.name || adgroup.nccAdgroupId;
-                            adgroupFilterSelect.appendChild(option);
+                    // 현재 선택된 광고그룹 ID 저장
+                    const selectedOptions = Array.from(adgroupFilterSelect.selectedOptions)
+                        .filter(option => option.value !== '')
+                        .map(option => {
+                            return {
+                                value: option.value,
+                                text: option.textContent,
+                                campaignId: option.dataset.campaignId
+                            };
                         });
+                    
+                    // 선택된 캠페인에 속하지 않는 광고그룹은 제외
+                    const validSelectedOptions = selectedOptions.filter(opt => 
+                        campaignIds.includes(opt.campaignId));
+                    
+                    // 선택된 모든 캠페인의 광고그룹 불러오기
+                    let allAdgroups = [];
+                    
+                    for (const campaignId of campaignIds) {
+                        const response = await fetch(`/api/adgroups/${campaignId}`);
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            const adgroups = data.adgroups;
+                            
+                            // 캠페인 ID 추가
+                            adgroups.forEach(adgroup => {
+                                adgroup.campaignId = campaignId;
+                            });
+                            
+                            allAdgroups = allAdgroups.concat(adgroups);
+                        } else {
+                            console.error(`캠페인 ${campaignId}의 광고그룹 정보를 불러오는데 실패했습니다.`);
+                        }
+                    }
+                    
+                    // 광고그룹 필터 옵션 초기화
+                    adgroupFilterSelect.innerHTML = '';
+                    
+                    // 기본 옵션 추가
+                    const defaultOption = document.createElement('option');
+                    defaultOption.value = '';
+                    defaultOption.textContent = '광고그룹 선택';
+                    adgroupFilterSelect.appendChild(defaultOption);
+                    
+                    // 전체 광고그룹 옵션 추가
+                    const allOption = document.createElement('option');
+                    allOption.value = "";
+                    allOption.textContent = '전체 광고그룹';
+                    // 이전에 선택되었는지 확인
+                    if (validSelectedOptions.some(opt => opt.value === "")) {
+                        allOption.selected = true;
+                    }
+                    adgroupFilterSelect.appendChild(allOption);
+                    
+                    // 광고그룹 필터 옵션 추가
+                    allAdgroups.forEach(adgroup => {
+                        const option = document.createElement('option');
+                        option.value = adgroup.nccAdgroupId;
+                        option.textContent = adgroup.name || adgroup.nccAdgroupId;
+                        option.dataset.campaignId = adgroup.campaignId;
+                        
+                        // 이전에 선택된 값이면 선택 상태로 설정
+                        if (validSelectedOptions.some(opt => opt.value === adgroup.nccAdgroupId)) {
+                            option.selected = true;
+                        }
+                        
+                        adgroupFilterSelect.appendChild(option);
+                    });
+                    
+                    // 선택된 광고그룹 항목 업데이트
+                    const selectedAdgroupIds = Array.from(adgroupFilterSelect.selectedOptions)
+                        .filter(option => option.value !== '')
+                        .map(option => option.value);
+                    
+                    if (selectedAdgroupIds.length > 0) {
+                        updateSelectedItems('adgroup', selectedAdgroupIds);
+                        loadKeywords(selectedAdgroupIds);
                     } else {
-                        console.error('광고그룹 정보를 불러오는데 실패했습니다.');
-                        showErrorAlert('광고그룹 정보를 불러오는데 실패했습니다.');
+                        // 선택된 광고그룹이 없으면 선택된 항목 초기화
+                        updateSelectedItems('adgroup', []);
+                        // 키워드도 초기화
+                        keywordFilterSelect.innerHTML = '';
+                        const defaultKeywordOption = document.createElement('option');
+                        defaultKeywordOption.value = '';
+                        defaultKeywordOption.textContent = '키워드 선택';
+                        keywordFilterSelect.appendChild(defaultKeywordOption);
+                        updateSelectedItems('keyword', []);
                     }
                 } catch (error) {
                     console.error('광고그룹 정보를 불러오는데 실패했습니다:', error);
@@ -276,64 +479,245 @@
             }
             
             // 키워드 목록 불러오기
-            async function loadKeywords(adgroupId) {
+            async function loadKeywords(adgroupIds) {
                 try {
-                    if (!adgroupId) {
-                        resetSelect(keywordFilterSelect, '키워드 선택');
+                    if (!adgroupIds || adgroupIds.length === 0) {
+                        // 광고그룹이 선택되지 않은 경우 키워드 초기화
+                        keywordFilterSelect.innerHTML = '';
+                        const defaultOption = document.createElement('option');
+                        defaultOption.value = '';
+                        defaultOption.textContent = '키워드 선택';
+                        keywordFilterSelect.appendChild(defaultOption);
+                        
                         return;
                     }
                     
-                    const response = await fetch(`/api/keywords/${adgroupId}`);
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        const keywords = data.keywords;
-                        
-                        // 키워드 필터 옵션 초기화
-                        resetSelect(keywordFilterSelect, '키워드 선택');
-                        
-                        // 전체 키워드 옵션 추가
-                        const allOption = document.createElement('option');
-                        allOption.value = "";
-                        allOption.textContent = '전체 키워드';
-                        keywordFilterSelect.appendChild(allOption);
-                        
-                        // 키워드 필터 옵션 추가
-                        keywords.forEach(keyword => {
-                            const option = document.createElement('option');
-                            option.value = keyword.nccKeywordId;
-                            option.textContent = keyword.keyword || keyword.nccKeywordId;
-                            keywordFilterSelect.appendChild(option);
+                    // 현재 선택된 키워드 ID 저장
+                    const selectedOptions = Array.from(keywordFilterSelect.selectedOptions)
+                        .filter(option => option.value !== '')
+                        .map(option => {
+                            return {
+                                value: option.value,
+                                text: option.textContent,
+                                adgroupId: option.dataset.adgroupId
+                            };
                         });
-                    } else {
-                        console.error('키워드 정보를 불러오는데 실패했습니다.');
-                        showErrorAlert('키워드 정보를 불러오는데 실패했습니다.');
+                    
+                    // 선택된 광고그룹에 속하지 않는 키워드는 제외
+                    const validSelectedOptions = selectedOptions.filter(opt => 
+                        adgroupIds.includes(opt.adgroupId));
+                    
+                    // 선택된 모든 광고그룹의 키워드 불러오기
+                    let allKeywords = [];
+                    
+                    for (const adgroupId of adgroupIds) {
+                        const response = await fetch(`/api/keywords/${adgroupId}`);
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            const keywords = data.keywords;
+                            
+                            // 광고그룹 ID 추가
+                            keywords.forEach(keyword => {
+                                keyword.adgroupId = adgroupId;
+                            });
+                            
+                            allKeywords = allKeywords.concat(keywords);
+                        } else {
+                            console.error(`광고그룹 ${adgroupId}의 키워드 정보를 불러오는데 실패했습니다.`);
+                        }
                     }
+                    
+                    // 키워드 필터 옵션 초기화
+                    keywordFilterSelect.innerHTML = '';
+                    
+                    // 기본 옵션 추가
+                    const defaultOption = document.createElement('option');
+                    defaultOption.value = '';
+                    defaultOption.textContent = '키워드 선택';
+                    keywordFilterSelect.appendChild(defaultOption);
+                    
+                    // 전체 키워드 옵션 추가
+                    const allOption = document.createElement('option');
+                    allOption.value = "";
+                    allOption.textContent = '전체 키워드';
+                    // 이전에 선택되었는지 확인
+                    if (validSelectedOptions.some(opt => opt.value === "")) {
+                        allOption.selected = true;
+                    }
+                    keywordFilterSelect.appendChild(allOption);
+                    
+                    // 키워드 필터 옵션 추가
+                    allKeywords.forEach(keyword => {
+                        const option = document.createElement('option');
+                        option.value = keyword.nccKeywordId;
+                        option.textContent = keyword.keyword || keyword.nccKeywordId;
+                        option.dataset.adgroupId = keyword.adgroupId;
+                        
+                        // 이전에 선택된 값이면 선택 상태로 설정
+                        if (validSelectedOptions.some(opt => opt.value === keyword.nccKeywordId)) {
+                            option.selected = true;
+                        }
+                        
+                        keywordFilterSelect.appendChild(option);
+                    });
+                    
+                    // 선택된 키워드 항목 업데이트
+                    const selectedKeywordIds = Array.from(keywordFilterSelect.selectedOptions)
+                        .filter(option => option.value !== '')
+                        .map(option => option.value);
+                    
+                    updateSelectedItems('keyword', selectedKeywordIds);
                 } catch (error) {
                     console.error('키워드 정보를 불러오는데 실패했습니다:', error);
                     showErrorAlert('키워드 정보를 불러오는데 실패했습니다.');
                 }
             }
             
-            // Select 요소 초기화 함수
-            function resetSelect(selectElement, defaultLabel) {
-                selectElement.innerHTML = '';
-                const defaultOption = document.createElement('option');
-                defaultOption.value = '';
-                defaultOption.textContent = defaultLabel;
-                defaultOption.selected = true;
-                selectElement.appendChild(defaultOption);
-            }
-            
             // 캠페인 선택 이벤트
-            campaignFilterSelect.addEventListener('change', function() {
-                loadAdgroups(this.value);
+            campaignFilterSelect.addEventListener('change', function(event) {
+                // 선택된 캠페인 ID 배열 가져오기
+                const selectedOptions = Array.from(this.selectedOptions)
+                    .filter(option => option.value !== '')
+                    .map(option => option.value);
+                
+                // 선택된 캠페인 항목 업데이트
+                updateSelectedItems('campaign', selectedOptions);
+                
+                // 광고그룹 목록 불러오기
+                loadAdgroups(selectedOptions);
             });
             
             // 광고그룹 선택 이벤트
-            adgroupFilterSelect.addEventListener('change', function() {
-                loadKeywords(this.value);
+            adgroupFilterSelect.addEventListener('change', function(event) {
+                // 선택된 광고그룹 ID 배열 가져오기
+                const selectedOptions = Array.from(this.selectedOptions)
+                    .filter(option => option.value !== '')
+                    .map(option => option.value);
+                
+                // 선택된 광고그룹 항목 업데이트
+                updateSelectedItems('adgroup', selectedOptions);
+                
+                // 키워드 목록 불러오기
+                loadKeywords(selectedOptions);
             });
+            
+            // 키워드 선택 이벤트
+            keywordFilterSelect.addEventListener('change', function(event) {
+                // 선택된 키워드 ID 배열 가져오기
+                const selectedOptions = Array.from(this.selectedOptions)
+                    .filter(option => option.value !== '')
+                    .map(option => option.value);
+                
+                // 선택된 키워드 항목 업데이트
+                updateSelectedItems('keyword', selectedOptions);
+            });
+            
+            // 선택된 항목 업데이트 함수
+            function updateSelectedItems(type, selectedIds) {
+                let selectedItems;
+                let tagsContainer;
+                let selectedContainer;
+                let selectElement;
+                
+                switch(type) {
+                    case 'campaign':
+                        selectedItems = selectedCampaignItems;
+                        tagsContainer = campaignTags;
+                        selectedContainer = selectedCampaigns;
+                        selectElement = campaignFilterSelect;
+                        break;
+                    case 'adgroup':
+                        selectedItems = selectedAdgroupItems;
+                        tagsContainer = adgroupTags;
+                        selectedContainer = selectedAdgroups;
+                        selectElement = adgroupFilterSelect;
+                        break;
+                    case 'keyword':
+                        selectedItems = selectedKeywordItems;
+                        tagsContainer = keywordTags;
+                        selectedContainer = selectedKeywords;
+                        selectElement = keywordFilterSelect;
+                        break;
+                }
+                
+                // 선택된 항목 초기화
+                selectedItems.length = 0;
+                tagsContainer.innerHTML = '';
+                
+                // 선택된 항목 추가
+                selectedIds.forEach(id => {
+                    const option = Array.from(selectElement.options).find(opt => opt.value === id);
+                    if (option) {
+                        selectedItems.push({
+                            id: id,
+                            name: option.textContent
+                        });
+                    }
+                });
+                
+                // 태그 생성
+                selectedItems.forEach(item => {
+                    const tag = document.createElement('div');
+                    tag.className = 'selected-tag';
+                    tag.innerHTML = `
+                        ${item.name}
+                        <span class="remove-tag" data-id="${item.id}" data-type="${type}">×</span>
+                    `;
+                    tagsContainer.appendChild(tag);
+                });
+                
+                // 태그 표시 여부 설정
+                selectedContainer.style.display = selectedItems.length > 0 ? 'block' : 'none';
+                
+                // 태그 삭제 이벤트
+                tagsContainer.querySelectorAll('.remove-tag').forEach(tag => {
+                    tag.addEventListener('click', function() {
+                        const id = this.dataset.id;
+                        const type = this.dataset.type;
+                        
+                        // 선택 해제
+                        removeSelectedItem(type, id);
+                    });
+                });
+            }
+            
+            // 선택된 항목 제거 함수
+            function removeSelectedItem(type, id) {
+                let selectElement;
+                let selectedItems;
+                
+                switch(type) {
+                    case 'campaign':
+                        selectElement = campaignFilterSelect;
+                        selectedItems = selectedCampaignItems;
+                        break;
+                    case 'adgroup':
+                        selectElement = adgroupFilterSelect;
+                        selectedItems = selectedAdgroupItems;
+                        break;
+                    case 'keyword':
+                        selectElement = keywordFilterSelect;
+                        selectedItems = selectedKeywordItems;
+                        break;
+                }
+                
+                // 선택 해제
+                const option = Array.from(selectElement.options).find(opt => opt.value === id);
+                if (option) {
+                    option.selected = false;
+                }
+                
+                // 선택된 항목 배열에서 제거
+                const index = selectedItems.findIndex(item => item.id === id);
+                if (index !== -1) {
+                    selectedItems.splice(index, 1);
+                }
+                
+                // 이벤트 발생
+                const event = new Event('change');
+                selectElement.dispatchEvent(event);
+            }
             
             // 캠페인 목록 불러오기
             loadCampaigns();
@@ -356,9 +740,15 @@
                 generateReportBtn.textContent = '리포트 생성 중...';
                 
                 const dateRange = dateRangeSelect.value;
-                const campaignId = campaignFilterSelect.value;
-                const adgroupId = adgroupFilterSelect.value;
-                const keywordId = keywordFilterSelect.value;
+                const campaignIds = Array.from(campaignFilterSelect.selectedOptions)
+                    .filter(option => option.value !== '')
+                    .map(option => option.value);
+                const adgroupIds = Array.from(adgroupFilterSelect.selectedOptions)
+                    .filter(option => option.value !== '')
+                    .map(option => option.value);
+                const keywordIds = Array.from(keywordFilterSelect.selectedOptions)
+                    .filter(option => option.value !== '')
+                    .map(option => option.value);
                 
                 let datePreset = null;
                 let startDateStr = startDate.value;
@@ -388,18 +778,18 @@
                 
                 // API 호출 데이터 준비
                 try {
-                    // 선택된 항목에 따라 entityId 결정
-                    let entityId;
+                    // 선택된 항목에 따라 entityIds 결정
+                    let entityIds = [];
                     
-                    if (keywordId) {
+                    if (keywordIds.length > 0) {
                         // 키워드가 선택된 경우
-                        entityId = keywordId;
-                    } else if (adgroupId) {
+                        entityIds = keywordIds;
+                    } else if (adgroupIds.length > 0) {
                         // 광고그룹만 선택된 경우
-                        entityId = adgroupId;
-                    } else if (campaignId) {
+                        entityIds = adgroupIds;
+                    } else if (campaignIds.length > 0) {
                         // 캠페인만 선택된 경우
-                        entityId = campaignId;
+                        entityIds = campaignIds;
                     } else {
                         // 아무것도 선택되지 않은 경우
                         showErrorAlert('캠페인, 광고그룹 또는 키워드를 선택해주세요.');
@@ -407,13 +797,17 @@
                         return;
                     }
                     
+                    // ID 목록을 쉼표로 구분된 문자열로 변환
+                    const entityIdStr = entityIds.join(',');
+                    
+                    // API 요청
                     const response = await fetch('/api/report', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({
-                            entityId: entityId,
+                            entityId: entityIdStr,  // 쉼표로 구분된 ID 문자열 전송
                             fields: fields,
                             startDate: startDateStr,
                             endDate: endDateStr,
@@ -427,6 +821,7 @@
                         handleReportData(data, fields);
                     } else {
                         const errorData = await response.json();
+                        console.error(`리포트 생성에 실패했습니다: ${errorData.detail || '알 수 없는 오류'}`);
                         showErrorAlert(`리포트 생성에 실패했습니다: ${errorData.detail || '알 수 없는 오류'}`);
                     }
                 } catch (error) {
@@ -438,293 +833,153 @@
                 }
             }
             
-            // 버튼 상태 복원 함수
-            function resetButton() {
-                generateReportBtn.disabled = false;
-                generateReportBtn.textContent = '리포트 생성';
-            }
-            
             // 리포트 데이터 처리 함수
             function handleReportData(data, fields) {
-                console.log('API 응답 데이터:', data);
+                console.log('리포트 데이터 처리:', data);
                 
-                if (!data) {
-                    showErrorAlert('응답 데이터가 없습니다.');
-                    return null;
-                }
+                // 데이터 형식 확인
+                let reportData = {
+                    dates: [],
+                    costs: [],
+                    impressions: [],
+                    clicks: [],
+                    ctrs: [],
+                    cpcs: [],
+                    avgRanks: []
+                };
                 
-                let processedData;
-                
-                // 데이터 유형 확인
-                if (data.dailyStatResponse) {
-                    processedData = processDailyStats(data.dailyStatResponse, fields);
-                } else if (data.summaryStatResponse) {
-                    processedData = processSummaryStats(data.summaryStatResponse, fields);
-                } else if (data.data && Array.isArray(data.data)) {
-                    // 일별 데이터로 처리
-                    processedData = processDailyStats({ data: data.data }, fields);
-                } else if (data.data) {
-                    // 요약 데이터로 처리
-                    processedData = processSummaryStats({ data: data.data, timeInterval: { dateStart: new Date().toISOString().split('T')[0] } }, fields);
-                } else {
-                    showErrorAlert('지원되지 않는 데이터 형식입니다.');
-                    return null;
-                }
-                
-                updateReportUI(processedData);
-            }
-            
-            // 일별 통계 데이터 처리 함수
-            function processDailyStats(dailyStats, fields) {
-                if (!dailyStats || !dailyStats.data || !Array.isArray(dailyStats.data) || dailyStats.data.length === 0) {
-                    console.error('유효한 일별 데이터가 없습니다.', dailyStats);
-                    return {
-                        dates: [],
-                        costs: [],
-                        impressions: [],
-                        clicks: [],
-                        ctrs: [],
-                        cpcs: [],
-                        avgRanks: [],
-                        summary: {
-                            totalCost: 0,
-                            totalImpressions: 0,
-                            totalClicks: 0,
-                            avgCtr: 0,
-                            avgCpc: 0,
-                            avgRank: 0,
-                            costChange: 0,
-                            impressionsChange: 0,
-                            clicksChange: 0,
-                            ctrChange: 0
-                        }
-                    };
-                }
-
-                console.log('일별 데이터 처리 중:', dailyStats);
-                
-                const dates = [];
-                const costs = [];
-                const impressions = [];
-                const clicks = [];
-                const ctrs = [];
-                const cpcs = [];
-                const avgRanks = [];
-                
-                // 일별 데이터 처리
-                dailyStats.data.forEach(day => {
-                    // 날짜 포맷 처리
-                    const date = day.dateStart || day.date || '';
-                    dates.push(date);
+                // 데이터 형식에 따라 처리
+                if (data.dailyStatResponse && Array.isArray(data.dailyStatResponse.data)) {
+                    // 일별 데이터
+                    const dailyData = data.dailyStatResponse.data;
                     
-                    // 각 필드 데이터 추출
-                    fields.forEach(field => {
-                        const value = day[field];
-                        switch(field) {
-                            case "impCnt":
-                                impressions.push(parseInt(value) || 0);
-                                break;
-                            case "clkCnt":
-                                clicks.push(parseInt(value) || 0);
-                                break;
-                            case "salesAmt":
-                                costs.push(parseInt(value) || 0);
-                                break;
-                            case "ctr":
-                                ctrs.push(parseFloat(value) || 0);
-                                break;
-                            case "cpc":
-                                cpcs.push(parseInt(value) || 0);
-                                break;
-                            case "avgRnk":
-                                avgRanks.push(parseFloat(value) || 0);
-                                break;
-                        }
+                    dailyData.forEach(day => {
+                        // 날짜
+                        const date = day.dateStart || day.date || '';
+                        reportData.dates.push(date);
+                        
+                        // 값 추출
+                        reportData.costs.push(parseInt(day.salesAmt || 0));
+                        reportData.impressions.push(parseInt(day.impCnt || 0));
+                        reportData.clicks.push(parseInt(day.clkCnt || 0));
+                        reportData.ctrs.push(parseFloat(day.ctr || 0));
+                        reportData.cpcs.push(parseInt(day.cpc || 0));
+                        reportData.avgRanks.push(parseFloat(day.avgRnk || 0));
                     });
+                } else if (data.summaryStatResponse && data.summaryStatResponse.data) {
+                    // 요약 데이터
+                    const summary = data.summaryStatResponse.data;
+                    const date = data.summaryStatResponse.timeInterval?.dateStart || new Date().toISOString().split('T')[0];
                     
-                    // 비용 데이터가 없으면 0 추가
-                    if (!fields.includes("salesAmt") && costs.length < dates.length) {
-                        costs.push(0);
-                    }
-                    
-                    // 노출 데이터가 없으면 0 추가
-                    if (!fields.includes("impCnt") && impressions.length < dates.length) {
-                        impressions.push(0);
-                    }
-                    
-                    // 클릭 데이터가 없으면 0 추가
-                    if (!fields.includes("clkCnt") && clicks.length < dates.length) {
-                        clicks.push(0);
-                    }
-                    
-                    // CTR 데이터가 없으면 0 추가
-                    if (!fields.includes("ctr") && ctrs.length < dates.length) {
-                        ctrs.push(0);
-                    }
-                    
-                    // CPC 데이터가 없으면 0 추가
-                    if (!fields.includes("cpc") && cpcs.length < dates.length) {
-                        cpcs.push(0);
-                    }
-                    
-                    // 평균 노출순위 데이터가 없으면 0 추가
-                    if (!fields.includes("avgRnk") && avgRanks.length < dates.length) {
-                        avgRanks.push(0);
-                    }
-                });
+                    reportData.dates.push(date);
+                    reportData.costs.push(parseInt(summary.salesAmt || 0));
+                    reportData.impressions.push(parseInt(summary.impCnt || a0));
+                    reportData.clicks.push(parseInt(summary.clkCnt || 0));
+                    reportData.ctrs.push(parseFloat(summary.ctr || 0));
+                    reportData.cpcs.push(parseInt(summary.cpc || 0));
+                    reportData.avgRanks.push(parseFloat(summary.avgRnk || 0));
+                } else if (Array.isArray(data.data)) {
+                    // 직접 데이터 배열
+                    data.data.forEach(item => {
+                        const date = item.dateStart || item.date || '';
+                        reportData.dates.push(date);
+                        
+                        // 값 추출
+                        reportData.costs.push(parseInt(item.salesAmt || 0));
+                        reportData.impressions.push(parseInt(item.impCnt || 0));
+                        reportData.clicks.push(parseInt(item.clkCnt || 0));
+                        reportData.ctrs.push(parseFloat(item.ctr || 0));
+                        reportData.cpcs.push(parseInt(item.cpc || 0));
+                        reportData.avgRanks.push(parseFloat(item.avgRnk || 0));
+                    });
+                } else {
+                    console.error('지원하지 않는 데이터 형식:', data);
+                    showErrorAlert('지원하지 않는 데이터 형식입니다.');
+                    return;
+                }
                 
-                // 요약 계산
-                const totalCost = costs.reduce((a, b) => a + b, 0);
-                const totalImpressions = impressions.reduce((a, b) => a + b, 0);
-                const totalClicks = clicks.reduce((a, b) => a + b, 0);
+                // 요약 통계 계산
+                const totalCost = reportData.costs.reduce((a, b) => a + b, 0);
+                const totalImpressions = reportData.impressions.reduce((a, b) => a + b, 0);
+                const totalClicks = reportData.clicks.reduce((a, b) => a + b, 0);
                 const avgCtr = totalImpressions > 0 ? (totalClicks / totalImpressions * 100).toFixed(2) : 0;
                 const avgCpc = totalClicks > 0 ? (totalCost / totalClicks).toFixed(2) : 0;
                 
                 // 평균 노출순위 계산 - 데이터가 있는 값들의 평균
-                const filteredRanks = avgRanks.filter(rank => rank > 0);
+                const filteredRanks = reportData.avgRanks.filter(rank => rank > 0);
                 const avgRank = filteredRanks.length > 0 
                     ? (filteredRanks.reduce((a, b) => a + b, 0) / filteredRanks.length).toFixed(1) 
                     : 0;
                 
-                return {
-                    dates: dates,
-                    costs: costs,
-                    impressions: impressions,
-                    clicks: clicks,
-                    ctrs: ctrs,
-                    cpcs: cpcs,
-                    avgRanks: avgRanks,
-                    summary: {
-                        totalCost: totalCost,
-                        totalImpressions: totalImpressions,
-                        totalClicks: totalClicks,
-                        avgCtr: avgCtr,
-                        avgCpc: avgCpc,
-                        avgRank: avgRank,
-                        costChange: 0,
-                        impressionsChange: 0,
-                        clicksChange: 0,
-                        ctrChange: 0
-                    }
-                };
-            }
-            
-            // 요약 통계 데이터 처리 함수
-            function processSummaryStats(summaryStats, fields) {
-                if (!summaryStats || !summaryStats.data) {
-                    console.error('유효한 요약 데이터가 없습니다.', summaryStats);
-                    return {
-                        dates: [],
-                        costs: [],
-                        impressions: [],
-                        clicks: [],
-                        ctrs: [],
-                        cpcs: [],
-                        avgRanks: [],
-                        summary: {
-                            totalCost: 0,
-                            totalImpressions: 0,
-                            totalClicks: 0,
-                            avgCtr: 0,
-                            avgCpc: 0,
-                            avgRank: 0,
-                            costChange: 0,
-                            impressionsChange: 0,
-                            clicksChange: 0,
-                            ctrChange: 0
-                        }
-                    };
-                }
-
-                console.log('요약 데이터 처리 중:', summaryStats);
-                
-                // 날짜 범위 추출
-                let date = '';
-                if (summaryStats.timeInterval) {
-                    date = summaryStats.timeInterval.dateStart || '';
-                }
-                
-                // 데이터 추출
-                const data = summaryStats.data || {};
-                
-                // 단일 날짜 범위에 대한 요약 데이터
-                const totalCost = fields.includes("salesAmt") ? parseInt(data.salesAmt) || 0 : 0;
-                const totalImpressions = fields.includes("impCnt") ? parseInt(data.impCnt) || 0 : 0;
-                const totalClicks = fields.includes("clkCnt") ? parseInt(data.clkCnt) || 0 : 0;
-                const avgCtr = fields.includes("ctr") ? parseFloat(data.ctr) || 0 : 0;
-                const avgCpc = fields.includes("cpc") ? parseInt(data.cpc) || 0 : 0;
-                const avgRank = fields.includes("avgRnk") ? parseFloat(data.avgRnk) || 0 : 0;
-                
-                return {
-                    dates: [date],
-                    costs: [totalCost],
-                    impressions: [totalImpressions],
-                    clicks: [totalClicks],
-                    ctrs: [avgCtr],
-                    cpcs: [avgCpc],
-                    avgRanks: [avgRank],
-                    summary: {
-                        totalCost: totalCost,
-                        totalImpressions: totalImpressions,
-                        totalClicks: totalClicks,
-                        avgCtr: avgCtr,
-                        avgCpc: avgCpc,
-                        avgRank: avgRank,
-                        costChange: 0,
-                        impressionsChange: 0,
-                        clicksChange: 0,
-                        ctrChange: 0
-                    }
-                };
-            }
-            
-            // UI 업데이트 함수
-            function updateReportUI(data) {
-                // 요약 정보 업데이트
-                document.getElementById('total-cost').textContent = formatNumber(data.summary.totalCost) + '원';
-                document.getElementById('total-impressions').textContent = formatNumber(data.summary.totalImpressions);
-                document.getElementById('total-clicks').textContent = formatNumber(data.summary.totalClicks);
-                document.getElementById('average-ctr').textContent = data.summary.avgCtr + '%';
-                document.getElementById('average-cpc').textContent = formatNumber(data.summary.avgCpc) + '원';
-                document.getElementById('average-rank').textContent = data.summary.avgRank || '-';
+                // 요약 업데이트
+                updateSummary({
+                    totalCost,
+                    totalImpressions,
+                    totalClicks,
+                    avgCtr,
+                    avgCpc,
+                    avgRank
+                });
                 
                 // 차트 업데이트
-                updateChart(data);
+                updateChart(reportData);
                 
                 // 테이블 업데이트
-                updateTable(data);
+                updateTable(reportData);
+            }
+            
+            // 요약 업데이트 함수
+            function updateSummary(summaryData) {
+                document.getElementById('total-cost').textContent = formatNumber(summaryData.totalCost) + '원';
+                document.getElementById('total-impressions').textContent = formatNumber(summaryData.totalImpressions);
+                document.getElementById('total-clicks').textContent = formatNumber(summaryData.totalClicks);
+                document.getElementById('average-ctr').textContent = summaryData.avgCtr + '%';
+                document.getElementById('average-cpc').textContent = formatNumber(summaryData.avgCpc) + '원';
+                document.getElementById('average-rank').textContent = summaryData.avgRank;
+            }
+            
+            // 숫자 포맷팅 함수
+            function formatNumber(num) {
+                return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
             }
             
             // 차트 업데이트 함수
             function updateChart(data) {
-                const ctx = document.getElementById('performance-chart').getContext('2d');
-                
                 // 기존 차트 제거
                 if (performanceChart) {
                     performanceChart.destroy();
                 }
                 
-                // 새 차트 생성
+                const ctx = document.getElementById('performance-chart').getContext('2d');
+                
                 performanceChart = new Chart(ctx, {
                     type: 'line',
                     data: {
                         labels: data.dates,
                         datasets: [
                             {
-                                label: '비용',
-                                data: data.costs,
+                                label: '노출수',
+                                data: data.impressions,
+                                borderColor: '#03c75a',
                                 backgroundColor: 'rgba(3, 199, 90, 0.1)',
-                                borderColor: '#03C75A',
-                                tension: 0.4,
-                                yAxisID: 'y'
+                                yAxisID: 'y',
+                                tension: 0.1
                             },
                             {
                                 label: '클릭수',
                                 data: data.clicks,
-                                backgroundColor: 'rgba(54, 162, 235, 0.1)',
-                                borderColor: '#36A2EB',
-                                tension: 0.4,
-                                yAxisID: 'y1'
+                                borderColor: '#1a73e8',
+                                backgroundColor: 'rgba(26, 115, 232, 0.1)',
+                                yAxisID: 'y',
+                                tension: 0.1
+                            },
+                            {
+                                label: 'CTR (%)',
+                                data: data.ctrs,
+                                borderColor: '#f6b026',
+                                backgroundColor: 'rgba(246, 176, 38, 0.1)',
+                                yAxisID: 'y1',
+                                tension: 0.1
                             }
                         ]
                     },
@@ -734,7 +989,6 @@
                             mode: 'index',
                             intersect: false,
                         },
-                        stacked: false,
                         scales: {
                             y: {
                                 type: 'linear',
@@ -742,21 +996,21 @@
                                 position: 'left',
                                 title: {
                                     display: true,
-                                    text: '비용 (원)'
+                                    text: '노출수/클릭수'
                                 }
                             },
                             y1: {
                                 type: 'linear',
                                 display: true,
                                 position: 'right',
-                                grid: {
-                                    drawOnChartArea: false,
-                                },
                                 title: {
                                     display: true,
-                                    text: '클릭수'
+                                    text: 'CTR (%)'
+                                },
+                                grid: {
+                                    drawOnChartArea: false,
                                 }
-                            }
+                            },
                         }
                     }
                 });
@@ -765,33 +1019,37 @@
             // 테이블 업데이트 함수
             function updateTable(data) {
                 const tableBody = document.querySelector('#report-table tbody');
-                let rows = '';
+                tableBody.innerHTML = '';
                 
-                for (let i = 0; i < data.dates.length; i++) {
-                    rows += `
-                        <tr>
-                            <td>${data.dates[i]}</td>
-                            <td>${formatNumber(data.costs[i] || 0)}원</td>
-                            <td>${formatNumber(data.impressions[i] || 0)}</td>
-                            <td>${formatNumber(data.clicks[i] || 0)}</td>
-                            <td>${data.ctrs[i] || 0}%</td>
-                            <td>${data.cpcs[i] || 0}원</td>
-                            <td>${data.avgRanks[i] || '-'}</td>
-                        </tr>
-                    `;
-                }
-                
-                // 데이터가 없는 경우
                 if (data.dates.length === 0) {
-                    rows = '<tr><td colspan="7" class="empty-data">데이터가 없습니다.</td></tr>';
+                    const row = document.createElement('tr');
+                    row.innerHTML = `<td colspan="7" class="empty-data">데이터가 없습니다.</td>`;
+                    tableBody.appendChild(row);
+                    return;
                 }
                 
-                tableBody.innerHTML = rows;
+                // 각 날짜별 데이터 행 추가
+                for (let i = 0; i < data.dates.length; i++) {
+                    const row = document.createElement('tr');
+                    
+                    row.innerHTML = `
+                        <td>${data.dates[i]}</td>
+                        <td>${formatNumber(data.costs[i])}원</td>
+                        <td>${formatNumber(data.impressions[i])}</td>
+                        <td>${formatNumber(data.clicks[i])}</td>
+                        <td>${data.ctrs[i]}%</td>
+                        <td>${formatNumber(data.cpcs[i])}원</td>
+                        <td>${data.avgRanks[i]}</td>
+                    `;
+                    
+                    tableBody.appendChild(row);
+                }
             }
             
-            // 숫자 포맷팅 함수
-            function formatNumber(num) {
-                return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+            // 버튼 상태 초기화 함수
+            function resetButton() {
+                generateReportBtn.disabled = false;
+                generateReportBtn.textContent = '리포트 생성';
             }
         });
     </script>
