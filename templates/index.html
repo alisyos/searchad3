@@ -210,12 +210,12 @@
         }
 
         .favorites-list {
-            padding: 15px 20px;
+            padding: 15px;
             max-height: 300px;
             overflow-y: auto;
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
+            gap: 6px;
         }
 
         .empty-favorites {
@@ -1230,31 +1230,46 @@
                 return;
             }
             
-            // 즐겨찾기 목록 생성
-            const favoritesHtml = favorites.map((favorite, index) => {
-                return `
-                    <div class="favorite-item" data-keyword-id="${favorite.id}" style="display: flex; align-items: center; width: calc(33.33% - 10px); background-color: #f5f5f5; border: 1px solid #ddd; border-radius: 5px; padding: 10px; cursor: pointer; margin-bottom: 8px; position: relative; transition: all 0.2s ease;">
-                        <div class="favorite-content" style="flex: 1; padding-right: 30px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                            <span style="font-size: 12px; color: #666;">${favorite.campaign}</span>
-                            <span style="font-size: 12px; color: #666;"> > </span>
-                            <span style="font-size: 12px; color: #666;">${favorite.adgroup}</span>
-                            <span style="font-size: 12px; color: #666;"> > </span>
-                            <span style="font-weight: 500;">${favorite.keyword}</span>
-                        </div>
-                        <button class="remove-favorite-btn" onclick="removeFromFavorites('${favorite.id}')" style="background-color: transparent; color: #999; border: none; width: 30px; height: 30px; border-radius: 50%; position: absolute; right: 5px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; justify-content: center; font-size: 16px; z-index: 5;">×</button>
-                    </div>
-                `;
-            });
+            // 즐겨찾기 목록을 3개씩 행으로 묶어서 생성
+            let rowsHTML = '';
+            
+            for (let i = 0; i < favorites.length; i += 3) {
+                let rowHTML = '<div style="display: flex; width: 100%; justify-content: space-between; margin-bottom: 8px;">';
+                
+                // 현재 행에 최대 3개의 항목 추가
+                for (let j = 0; j < 3; j++) {
+                    if (i + j < favorites.length) {
+                        const favorite = favorites[i + j];
+                        rowHTML += `
+                            <div class="favorite-item" data-keyword-id="${favorite.id}" style="width: 32%; display: flex; align-items: center; background-color: #f5f5f5; border: 1px solid #ddd; border-radius: 5px; padding: 8px; cursor: pointer; position: relative; transition: all 0.2s ease;">
+                                <div class="favorite-content" style="flex: 1; padding-right: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                    <span style="font-size: 12px; color: #666;">${favorite.campaign}</span>
+                                    <span style="font-size: 12px; color: #666;"> > </span>
+                                    <span style="font-size: 12px; color: #666;">${favorite.adgroup}</span>
+                                    <span style="font-size: 12px; color: #666;"> > </span>
+                                    <span style="font-weight: 500;">${favorite.keyword}</span>
+                                </div>
+                                <button class="remove-favorite-btn" onclick="removeFromFavorites('${favorite.id}'); event.stopPropagation();" style="background-color: transparent; color: #999; border: none; width: 20px; height: 20px; border-radius: 50%; position: absolute; right: 2px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; justify-content: center; font-size: 12px; z-index: 5;">×</button>
+                            </div>
+                        `;
+                    } else {
+                        // 빈 공간 유지하여 정렬 맞추기
+                        rowHTML += `<div style="width: 32%;"></div>`;
+                    }
+                }
+                
+                rowHTML += '</div>';
+                rowsHTML += rowHTML;
+            }
             
             // HTML 삽입
-            favoritesList.innerHTML = favoritesHtml.join('');
+            favoritesList.innerHTML = rowsHTML;
 
             // 즐겨찾기 항목에 클릭 이벤트 추가
             document.querySelectorAll('.favorite-item').forEach(item => {
                 item.addEventListener('click', function(e) {
-                    // 삭제 버튼을 클릭한 경우 이벤트 전파 중지
+                    // 삭제 버튼을 클릭한 경우 이벤트 전파 중지 (이미 onclick에서 처리됨)
                     if (e.target.classList.contains('remove-favorite-btn') || e.target.parentElement.classList.contains('remove-favorite-btn')) {
-                        e.stopPropagation();
                         return;
                     }
                     
